@@ -374,7 +374,11 @@ export function createEngine() {
     if (accumulator > tickMs * 5) accumulator = tickMs * 5;
 
     while (accumulator >= tickMs) {
-      tick();
+      try {
+        tick();
+      } catch (err) {
+        console.error('Engine tick error:', err);
+      }
       accumulator -= tickMs;
       if (!session?.snake?.alive || !running) break;
     }
