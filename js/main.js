@@ -927,8 +927,9 @@ function startGameplay(levelId) {
   // Initialize input queue on the session
   session.inputQueue = [];
 
-  // Activate touch input for gameplay
+  // Activate touch input for gameplay — sync snake direction for relative turns
   input.setActive(true);
+  input.updateSnakeDir(levelData.snakeStart.dir.toUpperCase());
 
   // Show control overlays (D-pad, dual pad) for modes that need them
   if (settings.controlScheme !== 'tap') {
