@@ -1,12 +1,12 @@
-import { COLORS, BOARD_W, BOARD_H, TILE, LIVES_START, LIVES_MAX } from './config.js';
+import { COLORS, BOARD_W, BOARD_H, TILE, LIVES_START, LIVES_MAX, ELEM } from './config.js';
 import { loadLevel, LEVELS } from './levels.js';
 import { createEngine } from './engine.js';
 import { createRenderer } from './renderer.js';
 import { createInput } from './input.js';
 import { createAudio } from './audio.js';
 import { createCamera } from './camera.js';
-import { gridWidth, gridHeight } from './grid.js';
-import { getHead } from './snake.js';
+import { gridWidth, gridHeight, findTiles } from './grid.js';
+import { getHead, getLength } from './snake.js';
 
 // DOM elements
 const canvas = document.getElementById('game-canvas');
@@ -44,10 +44,23 @@ let settings = {
   screenShake: true,
 };
 
+// Stats tracking
+let stats = {
+  totalDeaths: 0,
+  totalFoodEaten: 0,
+  totalPlayTime: 0,     // seconds
+  longestSnake: 0,
+  levelsCompleted: 0,    // computed from levelStars
+  perfectLevels: 0,      // computed from levelStars
+};
+
+// Session play time tracker (wall-clock based)
+let sessionPlayStart = null;
+
 // Persistence
 function saveProgress() {
   try {
-    localStorage.setItem('snake_quest_save', JSON.stringify({ levelStars, currentLevelId, lives, settings }));
+    localStorage.setItem('snake_quest_save', JSON.stringify({ levelStars, currentLevelId, lives, settings, stats }));
   } catch (e) { /* ignore */ }
 }
 
@@ -60,11 +73,41 @@ function loadProgress() {
       if (data.currentLevelId) currentLevelId = data.currentLevelId;
       if (data.lives) lives = data.lives;
       if (data.settings) settings = { ...settings, ...data.settings };
+      if (data.stats) stats = { ...stats, ...data.stats };
     }
   } catch (e) { /* ignore */ }
   // Apply loaded settings
   input.setMode(settings.controlScheme);
   audio.setEnabled(settings.soundEnabled);
+}
+
+// Compute derived stats from levelStars
+function computeDerivedStats() {
+  let completed = 0;
+  let perfect = 0;
+  for (const key of Object.keys(levelStars)) {
+    if (levelStars[key] >= 1) completed++;
+    if (levelStars[key] === 3) perfect++;
+  }
+  stats.levelsCompleted = completed;
+  stats.perfectLevels = perfect;
+}
+
+// Helper to record elapsed play time for a session
+function recordSessionPlayTime() {
+  if (sessionPlayStart !== null) {
+    stats.totalPlayTime += (Date.now() - sessionPlayStart) / 1000;
+    sessionPlayStart = null;
+  }
+}
+
+// World unlock check (module scope so multiple screens can use it)
+function isWorldUnlocked(world) {
+  if (world.id === 1) return true;
+  const prevWorld = WORLDS.find(w => w.id === world.id - 1);
+  if (!prevWorld) return false;
+  const lastLevelId = prevWorld.levels[prevWorld.levels.length - 1];
+  return (levelStars[lastLevelId] || 0) >= 1;
 }
 
 // --- Particle System ---
@@ -99,8 +142,37 @@ function updateAndDrawParticles(particles, ctx, scale) {
 let deathAnimation = null;
 let celebrationAnim = null;
 
+// --- Countdown Overlay ---
+function showCountdown(callback) {
+  const nums = ['3', '2', '1', 'GO!'];
+  let i = 0;
+  const el = document.createElement('div');
+  el.className = 'countdown-overlay';
+  el.innerHTML = `<span class="font-pixel countdown-num">${nums[0]}</span>`;
+  uiLayer.appendChild(el);
+
+  const interval = setInterval(() => {
+    i++;
+    if (i >= nums.length) {
+      clearInterval(interval);
+      el.remove();
+      callback();
+      return;
+    }
+    el.querySelector('.countdown-num').textContent = nums[i];
+    if (nums[i] === 'GO!') {
+      el.querySelector('.countdown-num').style.color = COLORS.GREEN;
+    }
+    // Re-trigger animation
+    const span = el.querySelector('.countdown-num');
+    span.style.animation = 'none';
+    span.offsetHeight; // reflow
+    span.style.animation = '';
+  }, 600);
+}
+
 // --- Screen Management ---
-// Screens: 'menu', 'world-map', 'level-select', 'level-intro', 'gameplay', 'death', 'complete', 'gameover'
+// Screens: 'menu', 'world-map', 'level-select', 'level-intro', 'gameplay', 'death', 'complete', 'gameover', 'stats', 'world-complete'
 let currentScreen = null;
 
 function showScreen(name, data) {
@@ -111,12 +183,14 @@ function showScreen(name, data) {
   switch (name) {
     case 'menu': renderMenuScreen(); break;
     case 'settings': renderSettingsScreen(); break;
+    case 'stats': renderStatsScreen(); break;
     case 'world-map': renderWorldMapScreen(); break;
     case 'level-select': renderLevelSelectScreen(data); break;
     case 'level-intro': renderLevelIntroScreen(data); break;
     case 'gameplay': startGameplay(data?.levelId ?? currentLevelId); break;
     case 'death': renderDeathScreen(data); break;
     case 'complete': renderCompleteScreen(data); break;
+    case 'world-complete': renderWorldCompleteScreen(data); break;
     case 'gameover': renderGameOverScreen(); break;
   }
 }
@@ -136,6 +210,7 @@ function renderMenuScreen() {
       <button class="btn btn-primary font-ui" id="btn-play">PLAY</button>
       <button class="btn btn-secondary font-ui" id="btn-continue" style="font-size: 12px;">CONTINUE &mdash; Level ${currentLevelId}</button>
       <button class="btn btn-secondary font-ui" id="btn-settings" style="font-size: 12px; margin-top: 4px;">SETTINGS</button>
+      <button class="btn btn-secondary font-ui" id="btn-stats" style="font-size: 12px; margin-top: 4px;">STATS</button>
     </div>
   `;
 
@@ -152,6 +227,10 @@ function renderMenuScreen() {
   document.getElementById('btn-settings').onclick = () => {
     audio.buttonTap();
     showScreen('settings');
+  };
+  document.getElementById('btn-stats').onclick = () => {
+    audio.buttonTap();
+    showScreen('stats');
   };
 }
 
@@ -273,6 +352,7 @@ function renderSettingsScreen() {
       currentLevelId = 1;
       levelStars = {};
       settings = { controlScheme: 'swipe', soundEnabled: true, vibration: true, gridLines: true, screenShake: true };
+      stats = { totalDeaths: 0, totalFoodEaten: 0, totalPlayTime: 0, longestSnake: 0, levelsCompleted: 0, perfectLevels: 0 };
       input.setMode('swipe');
       audio.setEnabled(true);
       showScreen('menu');
@@ -280,18 +360,117 @@ function renderSettingsScreen() {
   };
 }
 
+// --- Stats Screen ---
+function renderStatsScreen() {
+  engine.stop();
+  renderer.clear();
+  computeDerivedStats();
+
+  const totalLevels = LEVELS.length;
+  const totalPossibleStars = totalLevels * 3;
+  let totalStars = 0;
+  for (const key of Object.keys(levelStars)) {
+    totalStars += (levelStars[key] || 0);
+  }
+  const starPct = Math.round((totalStars / totalPossibleStars) * 100);
+
+  // Format play time
+  function formatTime(seconds) {
+    const s = Math.floor(seconds);
+    if (s < 60) return `${s}s`;
+    const m = Math.floor(s / 60);
+    const h = Math.floor(m / 60);
+    const rm = m % 60;
+    if (h > 0) return `${h}h ${rm}m`;
+    return `${m}m ${s % 60}s`;
+  }
+
+  // Per-world breakdown
+  let worldBreakdownHtml = '';
+  for (const world of WORLDS) {
+    let wStars = 0;
+    let wCompleted = 0;
+    const wMax = world.levels.length;
+    for (const lid of world.levels) {
+      wStars += (levelStars[lid] || 0);
+      if ((levelStars[lid] || 0) >= 1) wCompleted++;
+    }
+    const wPct = Math.round((wCompleted / wMax) * 100);
+    worldBreakdownHtml += `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(85,85,104,0.2);">
+        <span class="font-ui" style="color: ${world.color}; font-size: 12px; font-weight: 600;">${world.name}</span>
+        <div style="display: flex; gap: 12px; align-items: center;">
+          <span class="font-ui" style="color: ${COLORS.GOLD}; font-size: 11px;">\u2B50 ${wStars}/${wMax * 3}</span>
+          <span class="font-ui" style="color: ${COLORS.GREY}; font-size: 11px;">${wPct}%</span>
+        </div>
+      </div>
+    `;
+  }
+
+  uiLayer.innerHTML = `
+    <div class="screen active" style="overflow-y: auto; justify-content: flex-start;">
+      <div style="display: flex; justify-content: space-between; width: 100%; padding: 12px 16px; align-items: center;">
+        <button id="btn-stats-back" class="font-ui" style="background: none; border: none; color: ${COLORS.WHITE}; font-size: 14px; padding: 8px; cursor: pointer;">&larr; Back</button>
+        <h2 class="font-pixel" style="color: ${COLORS.GREEN}; font-size: 12px;">STATS</h2>
+        <div style="width: 48px;"></div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 0 16px; width: 100%; max-width: 340px;">
+        <div class="stat-card">
+          <span class="font-pixel stat-card-value">${stats.totalDeaths}</span>
+          <span class="font-ui stat-card-label">Deaths</span>
+        </div>
+        <div class="stat-card">
+          <span class="font-pixel stat-card-value">${stats.totalFoodEaten}</span>
+          <span class="font-ui stat-card-label">Eaten</span>
+        </div>
+        <div class="stat-card">
+          <span class="font-pixel stat-card-value">${stats.levelsCompleted}/${totalLevels}</span>
+          <span class="font-ui stat-card-label">Complete</span>
+        </div>
+        <div class="stat-card">
+          <span class="font-pixel stat-card-value">${stats.perfectLevels}/${totalLevels}</span>
+          <span class="font-ui stat-card-label">Perfect</span>
+        </div>
+        <div class="stat-card">
+          <span class="font-pixel stat-card-value">${formatTime(stats.totalPlayTime)}</span>
+          <span class="font-ui stat-card-label">Playtime</span>
+        </div>
+        <div class="stat-card">
+          <span class="font-pixel stat-card-value">${stats.longestSnake}</span>
+          <span class="font-ui stat-card-label">Longest</span>
+        </div>
+      </div>
+
+      <div style="padding: 16px; width: 100%; max-width: 340px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <span class="font-ui" style="color: ${COLORS.WHITE}; font-size: 13px;">Total stars</span>
+          <span class="font-ui" style="color: ${COLORS.GOLD}; font-size: 13px;">${totalStars}/${totalPossibleStars}</span>
+        </div>
+        <div style="width: 100%; height: 10px; background: ${COLORS.VOID}; border-radius: 5px; overflow: hidden;">
+          <div style="width: ${starPct}%; height: 100%; background: ${COLORS.GREEN}; border-radius: 5px; transition: width 0.3s;"></div>
+        </div>
+      </div>
+
+      <div style="padding: 0 16px; width: 100%; max-width: 340px;">
+        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px; margin-bottom: 8px;">PER WORLD</h3>
+        ${worldBreakdownHtml}
+      </div>
+
+      <div style="height: 32px;"></div>
+    </div>
+  `;
+
+  document.getElementById('btn-stats-back').onclick = () => {
+    audio.buttonTap();
+    showScreen('menu');
+  };
+}
+
 // --- World Map Screen ---
 function renderWorldMapScreen() {
   engine.stop();
   renderer.clear();
-
-  function isWorldUnlocked(world) {
-    if (world.id === 1) return true;
-    const prevWorld = WORLDS.find(w => w.id === world.id - 1);
-    if (!prevWorld) return false;
-    const lastLevelId = prevWorld.levels[prevWorld.levels.length - 1];
-    return (levelStars[lastLevelId] || 0) >= 1;
-  }
 
   function getWorldStats(world) {
     let completed = 0;
@@ -507,21 +686,48 @@ function renderLevelIntroScreen(data) {
 
 // --- Gameplay ---
 function startGameplay(levelId) {
-  uiLayer.innerHTML = `
-    <div class="screen active" style="pointer-events: none; justify-content: flex-start; padding: 8px 16px;">
-      <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; pointer-events: auto;">
-        <button id="btn-pause" class="font-pixel" style="background: none; border: none; color: ${COLORS.WHITE}; font-size: 16px; padding: 8px; cursor: pointer;">⏸</button>
-        <div id="hud-score" class="font-pixel" style="color: ${COLORS.GREEN}; font-size: 11px;">0</div>
-        <div id="hud-hearts" style="display: flex; gap: 4px;">${renderHearts(lives)}</div>
-      </div>
-      <div id="hud-goal" class="font-ui" style="color: ${COLORS.WHITE}; opacity: 0.5; font-size: 11px; text-align: center; width: 100%; margin-top: 4px; transition: opacity 1s;"></div>
-    </div>
-  `;
-
   // Load level
   const levelData = loadLevel(levelId);
   currentLevelId = levelId;
   resizeCanvas(levelData.grid);
+
+  // Count initial food for HUD
+  const initialFoodCount =
+    findTiles(levelData.grid, ELEM.FOOD).length +
+    findTiles(levelData.grid, ELEM.GOLDEN_FOOD).length +
+    findTiles(levelData.grid, ELEM.TIMED_FOOD).length;
+  let foodRemaining = initialFoodCount;
+
+  // Detect if level has food-based goal
+  const showFoodCounter = levelData.goal.type === 'eat-all' || levelData.goal.type === 'eat-all-and-exit';
+
+  // Detect keys in level for HUD inventory
+  const levelKeys = findTiles(levelData.grid, ELEM.KEY);
+  const allKeyColors = levelKeys.map(k => k.data?.color).filter(Boolean);
+
+  // Build HUD bottom row with food counter and key inventory
+  let hudBottomHtml = '';
+  if (showFoodCounter) {
+    hudBottomHtml += `<span id="hud-food-count" class="font-pixel" style="color: ${COLORS.WHITE}; font-size: 10px; opacity: 0.8;">\uD83C\uDF4E ${foodRemaining}/${initialFoodCount}</span>`;
+  }
+  if (allKeyColors.length > 0) {
+    const keyDotsHtml = allKeyColors.map(color =>
+      `<span class="hud-key-dot" data-key-color="${color}" style="display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 2px solid ${color}; background: transparent;"></span>`
+    ).join('');
+    hudBottomHtml += `<span id="hud-keys" style="display: flex; gap: 4px; align-items: center; margin-left: 12px;">${keyDotsHtml}</span>`;
+  }
+
+  uiLayer.innerHTML = `
+    <div class="screen active" style="pointer-events: none; justify-content: flex-start; padding: 8px 16px;">
+      <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; pointer-events: auto;">
+        <button id="btn-pause" class="font-pixel" style="background: none; border: none; color: ${COLORS.WHITE}; font-size: 16px; padding: 8px; cursor: pointer;">\u23F8</button>
+        <div id="hud-score" class="font-pixel" style="color: ${COLORS.GREEN}; font-size: 11px;">0</div>
+        <div id="hud-hearts" style="display: flex; gap: 4px;">${renderHearts(lives)}</div>
+      </div>
+      <div id="hud-goal" class="font-ui" style="color: ${COLORS.WHITE}; opacity: 0.5; font-size: 11px; text-align: center; width: 100%; margin-top: 4px; transition: opacity 1s;"></div>
+      ${hudBottomHtml ? `<div style="display: flex; align-items: center; width: 100%; margin-top: 6px; pointer-events: none;">${hudBottomHtml}</div>` : ''}
+    </div>
+  `;
 
   // Setup engine
   const session = engine.startLevel(levelData);
@@ -535,7 +741,7 @@ function startGameplay(levelId) {
 
   // Show goal briefly
   const goalEl = document.getElementById('hud-goal');
-  const goalTexts = { 'eat-all': 'Eat all apples', 'reach-exit': 'Reach the exit', 'eat-all-and-exit': 'Eat all apples → reach exit' };
+  const goalTexts = { 'eat-all': 'Eat all apples', 'reach-exit': 'Reach the exit', 'eat-all-and-exit': 'Eat all apples \u2192 reach exit' };
   if (goalEl) {
     goalEl.textContent = goalTexts[levelData.goal.type] || '';
     setTimeout(() => { if (goalEl) goalEl.style.opacity = '0'; }, 3000);
@@ -559,6 +765,17 @@ function startGameplay(levelId) {
 
     const ctx = renderer.ctx;
     const sc = renderer.scale;
+
+    // Update key inventory HUD (poll keysCollected from session)
+    if (allKeyColors.length > 0) {
+      const dots = document.querySelectorAll('.hud-key-dot');
+      dots.forEach(dot => {
+        const color = dot.dataset.keyColor;
+        if (sess.keysCollected.has(color)) {
+          dot.style.background = color;
+        }
+      });
+    }
 
     // Death animation
     if (deathAnimation && deathAnimation.active) {
@@ -602,11 +819,11 @@ function startGameplay(levelId) {
       }
     } else if (celebrationAnim && celebrationAnim.active) {
       // Draw snake normally during celebration
-      renderer.drawSnake(sess.snake, interp, sess.prevSegments);
+      renderer.drawSnake(sess.snake, interp, sess.prevSegments, sess);
       // Overlay confetti
       updateAndDrawParticles(celebrationAnim.particles, ctx, sc);
     } else {
-      renderer.drawSnake(sess.snake, interp, sess.prevSegments);
+      renderer.drawSnake(sess.snake, interp, sess.prevSegments, sess);
     }
   };
 
@@ -620,6 +837,22 @@ function startGameplay(levelId) {
       audio.eatGolden();
     } else {
       audio.eatFood();
+    }
+
+    // Stats: track food eaten and longest snake
+    stats.totalFoodEaten++;
+    const snakeLen = getLength(session.snake);
+    if (snakeLen > stats.longestSnake) {
+      stats.longestSnake = snakeLen;
+    }
+
+    // Update food counter HUD
+    if (showFoodCounter) {
+      foodRemaining = findTiles(session.grid, ELEM.FOOD).length +
+        findTiles(session.grid, ELEM.GOLDEN_FOOD).length +
+        findTiles(session.grid, ELEM.TIMED_FOOD).length;
+      const fcEl = document.getElementById('hud-food-count');
+      if (fcEl) fcEl.textContent = `\uD83C\uDF4E ${foodRemaining}/${initialFoodCount}`;
     }
   };
 
@@ -637,6 +870,11 @@ function startGameplay(levelId) {
     audio.death();
     audio.lifeLost();
     lives--;
+
+    // Stats: track death and play time
+    stats.totalDeaths++;
+    recordSessionPlayTime();
+    saveProgress();
 
     // Capture snake segments for death animation
     const segs = session.snake.segments.map(s => ({ ...s }));
@@ -661,8 +899,12 @@ function startGameplay(levelId) {
     }, 800);
   };
 
-  engine.onLevelComplete = (stats) => {
+  engine.onLevelComplete = (completionStats) => {
     audio.levelComplete();
+
+    // Stats: track play time
+    recordSessionPlayTime();
+    saveProgress();
 
     // Spawn celebration confetti
     const canvasW = canvas.width / (window.devicePixelRatio || 1);
@@ -679,7 +921,7 @@ function startGameplay(levelId) {
 
     setTimeout(() => {
       celebrationAnim = null;
-      showScreen('complete', { ...stats, levelId: currentLevelId });
+      showScreen('complete', { ...completionStats, levelId: currentLevelId });
     }, 600);
   };
 
@@ -689,12 +931,21 @@ function startGameplay(levelId) {
     pauseBtn.onclick = () => {
       audio.buttonTap();
       engine.pause();
+      recordSessionPlayTime();
+      saveProgress();
       showPauseOverlay();
     };
   }
 
-  // Start!
-  engine.start();
+  // Render the board so it's visible behind the countdown overlay
+  renderer.clear();
+  renderer.drawBoard(levelData.grid, levelData.warpEdges);
+
+  // Show countdown then start engine
+  showCountdown(() => {
+    sessionPlayStart = Date.now();
+    engine.start();
+  });
 }
 
 function showPauseOverlay() {
@@ -715,7 +966,10 @@ function showPauseOverlay() {
   document.getElementById('btn-resume').onclick = () => {
     audio.buttonTap();
     overlay.remove();
-    engine.resume();
+    showCountdown(() => {
+      sessionPlayStart = Date.now();
+      engine.resume();
+    });
   };
   document.getElementById('btn-restart').onclick = () => {
     audio.buttonTap();
@@ -791,23 +1045,58 @@ function renderCompleteScreen(data) {
   engine.stop();
   const stars = data?.stars ?? 1;
 
-  // Record star progress
   const completedLevelId = data?.levelId ?? currentLevelId;
+
+  // Check for world completion BEFORE recording stars (so we can detect first unlock)
+  const completedLevel = LEVELS.find(l => l.id === completedLevelId);
+  const currentWorld = completedLevel ? WORLDS.find(w => w.id === completedLevel.world) : null;
+  let showWorldComplete = false;
+  let nextWorld = null;
+
+  if (currentWorld) {
+    const lastLevelOfWorld = currentWorld.levels[currentWorld.levels.length - 1];
+    if (completedLevelId === lastLevelOfWorld) {
+      // Check if next world was locked before we record the stars
+      nextWorld = WORLDS.find(w => w.id === currentWorld.id + 1);
+      if (nextWorld && !isWorldUnlocked(nextWorld)) {
+        showWorldComplete = true;
+      }
+      // Also trigger if it's the last world and all levels complete (first time only)
+      if (!nextWorld) {
+        const wasAlreadyCompleted = (levelStars[completedLevelId] || 0) >= 1;
+        const allComplete = currentWorld.levels.every(lid => (levelStars[lid] || 0) >= 1 || lid === completedLevelId);
+        if (allComplete && !wasAlreadyCompleted) showWorldComplete = true;
+      }
+    }
+  }
+
+  // Record star progress
   levelStars[completedLevelId] = Math.max(levelStars[completedLevelId] || 0, stars);
   saveProgress();
-
-  const starHtml = [1, 2, 3].map(i =>
-    `<span class="font-pixel" style="font-size: 28px; color: ${i <= stars ? COLORS.GOLD : COLORS.GREY};">★</span>`
-  ).join('');
-
-  const nextLevelId = currentLevelId + 1;
-  const nextExists = LEVELS.find(l => l.id === nextLevelId);
 
   // Award extra life for 3 stars
   if (stars === 3 && lives < LIVES_MAX) {
     lives++;
     audio.lifeGained();
   }
+
+  // If world complete, redirect to world-complete screen
+  if (showWorldComplete) {
+    showScreen('world-complete', {
+      ...data,
+      stars,
+      completedWorld: currentWorld,
+      nextWorld: nextWorld,
+    });
+    return;
+  }
+
+  const starHtml = [1, 2, 3].map(i =>
+    `<span class="font-pixel" style="font-size: 28px; color: ${i <= stars ? COLORS.GOLD : COLORS.GREY};">\u2605</span>`
+  ).join('');
+
+  const nextLevelId = currentLevelId + 1;
+  const nextExists = LEVELS.find(l => l.id === nextLevelId);
 
   // Play star sounds with staggered timing
   for (let i = 0; i < stars; i++) {
@@ -824,9 +1113,9 @@ function renderCompleteScreen(data) {
           <div style="color: ${COLORS.GREY};">Score</div><div style="color: ${COLORS.GREEN};">${data?.score ?? 0}</div>
           <div style="color: ${COLORS.GREY};">Segments lost</div><div style="color: ${(data?.segmentsLost ?? 0) === 0 ? COLORS.GREEN : COLORS.RED};">${data?.segmentsLost ?? 0}</div>
         </div>
-        ${stars === 3 ? `<p class="font-pixel" style="color: ${COLORS.GOLD}; font-size: 9px; margin-bottom: 12px;">+1 LIFE ❤️</p>` : ''}
+        ${stars === 3 ? `<p class="font-pixel" style="color: ${COLORS.GOLD}; font-size: 9px; margin-bottom: 12px;">+1 LIFE \u2764\uFE0F</p>` : ''}
         <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
-          ${nextExists ? `<button class="btn btn-primary font-ui" id="btn-next">NEXT LEVEL →</button>` : ''}
+          ${nextExists ? `<button class="btn btn-primary font-ui" id="btn-next">NEXT LEVEL \u2192</button>` : ''}
           <button class="btn btn-secondary font-ui" id="btn-retry-complete">RETRY</button>
           <button class="btn btn-secondary font-ui" id="btn-menu-complete" style="font-size: 12px; padding: 10px;">MENU</button>
         </div>
@@ -843,6 +1132,88 @@ function renderCompleteScreen(data) {
   }
   document.getElementById('btn-retry-complete').onclick = () => { audio.buttonTap(); showScreen('gameplay', { levelId: currentLevelId }); };
   document.getElementById('btn-menu-complete').onclick = () => { audio.buttonTap(); showScreen('menu'); };
+}
+
+// --- World Complete Screen ---
+function renderWorldCompleteScreen(data) {
+  engine.stop();
+
+  const completedWorld = data?.completedWorld;
+  const nextWorld = data?.nextWorld;
+  const stars = data?.stars ?? 1;
+
+  if (!completedWorld) { showScreen('menu'); return; }
+
+  // Award +1 life for world completion
+  if (lives < LIVES_MAX) {
+    lives++;
+    audio.lifeGained();
+  }
+  saveProgress();
+
+  // Calculate world stats
+  let worldStars = 0;
+  const worldMaxStars = completedWorld.levels.length * 3;
+  const worldLevelCount = completedWorld.levels.length;
+  let worldCompleted = 0;
+  for (const lid of completedWorld.levels) {
+    worldStars += (levelStars[lid] || 0);
+    if ((levelStars[lid] || 0) >= 1) worldCompleted++;
+  }
+
+  const nextWorldFirstLevel = nextWorld ? nextWorld.levels[0] : null;
+
+  uiLayer.innerHTML = `
+    <div class="screen active" style="justify-content: center; background: linear-gradient(135deg, ${completedWorld.color}33, ${COLORS.VOID});">
+      <div style="text-align: center; max-width: 320px; width: 90%;">
+        <p style="font-size: 28px; margin-bottom: 8px;">\uD83C\uDF89</p>
+        <h1 class="font-pixel" style="color: ${completedWorld.color}; font-size: 14px; margin-bottom: 4px;">WORLD ${completedWorld.id} COMPLETE!</h1>
+        <p class="font-ui" style="color: ${COLORS.WHITE}; font-size: 16px; margin-bottom: 20px; opacity: 0.8;">"${completedWorld.name}"</p>
+
+        <div style="background: ${COLORS.NAVY}; border-radius: 12px; padding: 16px; margin-bottom: 16px;">
+          <div class="font-ui" style="display: flex; justify-content: space-around; margin-bottom: 8px;">
+            <div style="text-align: center;">
+              <div style="color: ${COLORS.GOLD}; font-size: 16px; font-weight: 700;">\u2B50 ${worldStars}/${worldMaxStars}</div>
+              <div style="color: ${COLORS.GREY}; font-size: 11px;">Stars</div>
+            </div>
+            <div style="text-align: center;">
+              <div style="color: ${COLORS.GREEN}; font-size: 16px; font-weight: 700;">${worldCompleted}/${worldLevelCount}</div>
+              <div style="color: ${COLORS.GREY}; font-size: 11px;">Levels</div>
+            </div>
+          </div>
+        </div>
+
+        <div style="background: ${COLORS.NAVY}; border-radius: 12px; padding: 14px; margin-bottom: 16px;">
+          <p class="font-pixel" style="color: ${COLORS.RED}; font-size: 10px;">+1 LIFE \u2764\uFE0F</p>
+        </div>
+
+        ${nextWorld ? `
+          <div style="background: ${nextWorld.color}22; border: 1px solid ${nextWorld.color}; border-radius: 12px; padding: 14px; margin-bottom: 20px;">
+            <p class="font-pixel" style="color: ${nextWorld.color}; font-size: 10px; margin-bottom: 4px;">WORLD ${nextWorld.id} UNLOCKED!</p>
+            <p class="font-ui" style="color: ${COLORS.WHITE}; font-size: 13px; opacity: 0.8;">${nextWorld.name}</p>
+          </div>
+          <button class="btn btn-primary font-ui" id="btn-wc-continue" style="width: 100%; margin-bottom: 10px;">CONTINUE TO WORLD ${nextWorld.id}</button>
+        ` : `
+          <div style="background: ${COLORS.GOLD}22; border: 1px solid ${COLORS.GOLD}; border-radius: 12px; padding: 14px; margin-bottom: 20px;">
+            <p class="font-pixel" style="color: ${COLORS.GOLD}; font-size: 10px;">ALL WORLDS COMPLETE!</p>
+          </div>
+        `}
+        <button class="btn btn-secondary font-ui" id="btn-wc-menu" style="width: 100%; font-size: 12px;">MAIN MENU</button>
+      </div>
+    </div>
+  `;
+
+  if (nextWorld && nextWorldFirstLevel) {
+    document.getElementById('btn-wc-continue').onclick = () => {
+      audio.buttonTap();
+      currentLevelId = nextWorldFirstLevel;
+      showScreen('level-intro', { levelId: nextWorldFirstLevel });
+    };
+  }
+  document.getElementById('btn-wc-menu').onclick = () => {
+    audio.buttonTap();
+    showScreen('menu');
+  };
 }
 
 // --- Helpers ---

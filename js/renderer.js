@@ -134,6 +134,15 @@ export function createRenderer(canvas) {
       const w = gridWidth(grid);
       const h = gridHeight(grid);
       const ts = TILE * scale;
+      const now = performance.now();
+
+      // Animation values computed once per frame
+      const bobOffset = Math.sin(now / 750 * Math.PI) * 2;
+      const portalAngle = (now / 800 * Math.PI * 2) % (Math.PI * 2);
+      const halfTile = ts / 2;
+      const exitPulse = 0.5 + 0.5 * Math.sin(now / 500 * Math.PI);
+      const movingGlow = 0.3 + 0.3 * Math.sin(now / 600 * Math.PI);
+      const heartPulse = 0.5 + 0.5 * Math.sin(now / 500 * Math.PI);
 
       const camX = camera ? camera.x : 0;
       const camY = camera ? camera.y : 0;
@@ -185,23 +194,44 @@ export function createRenderer(canvas) {
               drawSprite('WALL', x, y);
               break;
             case ELEM.FOOD:
+              ctx.save();
+              ctx.translate(0, bobOffset);
               drawSprite('FOOD', x, y);
+              ctx.restore();
               break;
             case ELEM.GOLDEN_FOOD:
+              ctx.save();
+              ctx.translate(0, bobOffset);
               drawSprite('GOLDEN_FOOD', x, y);
+              ctx.restore();
               break;
             case ELEM.EXIT:
               if (tile.data?.active) {
+                ctx.shadowColor = COLORS.GREEN;
+                ctx.shadowBlur = 8 * exitPulse;
                 drawSprite('EXIT_ACTIVE', x, y);
+                ctx.shadowBlur = 0;
               } else {
                 drawSprite('EXIT_INACTIVE', x, y);
               }
               break;
-            case ELEM.PORTAL:
+            case ELEM.PORTAL: {
               if (tile.data?.color) {
-                drawSprite('PORTAL_' + tile.data.color.toUpperCase(), x, y);
+                const spriteName = 'PORTAL_' + tile.data.color.toUpperCase();
+                const cached = spriteCache.get(spriteName);
+                if (cached) {
+                  const pixelX = (x - camX) * ts + offsetX;
+                  const pixelY = (y - camY) * ts + offsetY;
+                  ctx.save();
+                  ctx.translate(pixelX + halfTile, pixelY + halfTile);
+                  ctx.rotate(portalAngle);
+                  ctx.translate(-halfTile, -halfTile);
+                  ctx.drawImage(cached, 0, 0);
+                  ctx.restore();
+                }
               }
               break;
+            }
             case ELEM.KEY:
               if (tile.data?.color) {
                 drawSprite('KEY_' + tile.data.color.toUpperCase(), x, y);
@@ -241,9 +271,14 @@ export function createRenderer(canvas) {
                   }
                 }
               }
+              ctx.shadowColor = COLORS.RED;
+              ctx.shadowBlur = 6 * movingGlow;
               drawSprite('MOVING_OBS', x, y);
+              ctx.shadowBlur = 0;
               break;
             case ELEM.TIMED_FOOD: {
+              ctx.save();
+              ctx.translate(0, bobOffset);
               drawSprite('TIMED_FOOD', x, y);
               // Draw countdown ring overlay
               if (tile.data && tile.data.maxTime) {
@@ -257,10 +292,17 @@ export function createRenderer(canvas) {
                 ctx.lineWidth = Math.max(2, scale);
                 ctx.stroke();
               }
+              ctx.restore();
               break;
             }
             case ELEM.HEART:
+              ctx.save();
+              ctx.translate(0, bobOffset);
+              ctx.shadowColor = COLORS.RED;
+              ctx.shadowBlur = 6 * heartPulse;
               drawSprite('HEART', x, y);
+              ctx.shadowBlur = 0;
+              ctx.restore();
               break;
             // EMPTY and other types: floor already drawn
           }
@@ -278,7 +320,7 @@ export function createRenderer(canvas) {
       ctx.restore();
     },
 
-    drawSnake(snake, interp, prevSegments) {
+    drawSnake(snake, interp, prevSegments, session) {
       if (!snake || !snake.segments || snake.segments.length === 0) return;
 
       const segs = snake.segments;
@@ -288,6 +330,7 @@ export function createRenderer(canvas) {
       const camY = camera ? camera.y : 0;
       const camVW = camera ? camera.viewW : Infinity;
       const camVH = camera ? camera.viewH : Infinity;
+      const speedMod = session?.speedMod || null;
 
       // Clip to viewport when camera is active
       if (camera) {
@@ -295,6 +338,26 @@ export function createRenderer(canvas) {
         ctx.beginPath();
         ctx.rect(offsetX, offsetY, camVW * ts, camVH * ts);
         ctx.clip();
+      }
+
+      // Speed boost: draw afterimage trail behind the tail
+      if (speedMod?.type === 'fast' && segs.length >= 2) {
+        const tail = segs[segs.length - 1];
+        const prevSeg = segs[segs.length - 2];
+        const tdir = tailDirection(tail, prevSeg);
+        // Direction vector pointing away from the body (behind the tail)
+        const dx = tdir === 'LEFT' ? 1 : tdir === 'RIGHT' ? -1 : 0;
+        const dy = tdir === 'UP' ? 1 : tdir === 'DOWN' ? -1 : 0;
+        const opacities = [0.3, 0.2, 0.1];
+        for (let g = 0; g < 3; g++) {
+          const gx = tail.x + dx * (g + 1);
+          const gy = tail.y + dy * (g + 1);
+          const gpx = Math.round((gx - camX) * ts + offsetX);
+          const gpy = Math.round((gy - camY) * ts + offsetY);
+          ctx.globalAlpha = opacities[g];
+          drawSpriteAt('SNAKE_BODY', gpx, gpy);
+        }
+        ctx.globalAlpha = 1.0;
       }
 
       for (let i = segs.length - 1; i >= 0; i--) {
@@ -331,6 +394,12 @@ export function createRenderer(canvas) {
         }
 
         drawSpriteAt(spriteName, px, py);
+
+        // Slow effect: draw a blue tint overlay on each segment
+        if (speedMod?.type === 'slow') {
+          ctx.fillStyle = 'rgba(0, 100, 255, 0.25)';
+          ctx.fillRect(px, py, ts, ts);
+        }
       }
 
       if (camera) {
