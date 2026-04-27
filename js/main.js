@@ -23,11 +23,16 @@ let cameraActive = false;
 
 // World definitions
 const WORLDS = [
-  { id: 1, name: 'Green Meadow', color: COLORS.WORLD_1, levels: [1,2,3,4,5,6,7] },
-  { id: 2, name: 'Ancient Temple', color: COLORS.WORLD_2, levels: [8,9,10,11,12,13,14] },
-  { id: 3, name: 'Ice Cavern', color: COLORS.WORLD_3, levels: [15,16,17,18,19,20,21] },
-  { id: 4, name: 'Shadow Forest', color: COLORS.WORLD_4, levels: [22,23,24,25,26,27,28] },
-  { id: 5, name: 'Void Realm', color: COLORS.WORLD_5, levels: [29,30,31,32,33,34,35] },
+  { id: 1,  name: 'Green Meadow',    color: COLORS.WORLD_1,  levels: Array.from({length: 25}, (_, i) => i + 1) },
+  { id: 2,  name: 'Ancient Temple',   color: COLORS.WORLD_2,  levels: Array.from({length: 25}, (_, i) => i + 26) },
+  { id: 3,  name: 'Ice Cavern',       color: COLORS.WORLD_3,  levels: Array.from({length: 25}, (_, i) => i + 51) },
+  { id: 4,  name: 'Shadow Forest',    color: COLORS.WORLD_4,  levels: Array.from({length: 25}, (_, i) => i + 76) },
+  { id: 5,  name: 'Void Realm',       color: COLORS.WORLD_5,  levels: Array.from({length: 25}, (_, i) => i + 101) },
+  { id: 6,  name: 'Crystal Depths',   color: COLORS.WORLD_6,  levels: Array.from({length: 25}, (_, i) => i + 126) },
+  { id: 7,  name: 'Magma Caves',      color: COLORS.WORLD_7,  levels: Array.from({length: 25}, (_, i) => i + 151) },
+  { id: 8,  name: 'Storm Peaks',      color: COLORS.WORLD_8,  levels: Array.from({length: 25}, (_, i) => i + 176) },
+  { id: 9,  name: 'Twilight Garden',  color: COLORS.WORLD_9,  levels: Array.from({length: 25}, (_, i) => i + 201) },
+  { id: 10, name: 'Cosmic Temple',    color: COLORS.WORLD_10, levels: Array.from({length: 25}, (_, i) => i + 226) },
 ];
 
 // Game state (simple for now — full state.js comes later)

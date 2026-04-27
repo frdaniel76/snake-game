@@ -46,6 +46,11 @@ export const COLORS = {
   WORLD_3: '#7fdbda',
   WORLD_4: '#6b3fa0',
   WORLD_5: '#9d4edd',
+  WORLD_6: '#2196f3',
+  WORLD_7: '#ff5722',
+  WORLD_8: '#607d8b',
+  WORLD_9: '#e91e63',
+  WORLD_10: '#ffd700',
 };
 
 // Directions

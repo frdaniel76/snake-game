@@ -1,5 +1,6 @@
 import { ELEM } from './config.js';
 import { createGrid, setTile } from './grid.js';
+import { generateAllLevels } from './level-generator.js';
 
 // ---------------------------------------------------------------------------
 // World 1 — Green Meadow
@@ -245,14 +246,14 @@ export const LEVELS = [
   },
 
   // =======================================================================
-  // World 2 — Ancient Temple (Levels 8-14)
+  // World 2 — Ancient Temple (Levels 26-32)
   // =======================================================================
 
   // -----------------------------------------------------------------------
-  // Level 8 — Portal 101
+  // Level 26 — Portal 101
   // -----------------------------------------------------------------------
   {
-    id: 8,
+    id: 26,
     name: 'Portal 101',
     world: 2,
     worldName: 'Ancient Temple',
@@ -285,10 +286,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 9 — Lock and Key
+  // Level 27 — Lock and Key
   // -----------------------------------------------------------------------
   {
-    id: 9,
+    id: 27,
     name: 'Lock and Key',
     world: 2,
     worldName: 'Ancient Temple',
@@ -320,10 +321,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 10 — Portal Run
+  // Level 28 — Portal Run
   // -----------------------------------------------------------------------
   {
-    id: 10,
+    id: 28,
     name: 'Portal Run',
     world: 2,
     worldName: 'Ancient Temple',
@@ -364,10 +365,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 11 — Crack the Wall
+  // Level 29 — Crack the Wall
   // -----------------------------------------------------------------------
   {
-    id: 11,
+    id: 29,
     name: 'Crack the Wall',
     world: 2,
     worldName: 'Ancient Temple',
@@ -408,10 +409,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 12 — Temple Chambers
+  // Level 30 — Temple Chambers
   // -----------------------------------------------------------------------
   {
-    id: 12,
+    id: 30,
     name: 'Temple Chambers',
     world: 2,
     worldName: 'Ancient Temple',
@@ -462,10 +463,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 13 — One Way Only
+  // Level 31 — One Way Only
   // -----------------------------------------------------------------------
   {
-    id: 13,
+    id: 31,
     name: 'One Way Only',
     world: 2,
     worldName: 'Ancient Temple',
@@ -507,10 +508,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 14 — Temple Gauntlet
+  // Level 32 — Temple Gauntlet
   // -----------------------------------------------------------------------
   {
-    id: 14,
+    id: 32,
     name: 'Temple Gauntlet',
     world: 2,
     worldName: 'Ancient Temple',
@@ -572,14 +573,14 @@ export const LEVELS = [
   },
 
   // =======================================================================
-  // World 3 — Ice Cavern (Levels 15-21)
+  // World 3 — Ice Cavern (Levels 51-57)
   // =======================================================================
 
   // -----------------------------------------------------------------------
-  // Level 15 — Slippery Slope
+  // Level 51 — Slippery Slope
   // -----------------------------------------------------------------------
   {
-    id: 15,
+    id: 51,
     name: 'Slippery Slope',
     world: 3,
     worldName: 'Ice Cavern',
@@ -613,10 +614,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 16 — Ice Corridors
+  // Level 52 — Ice Corridors
   // -----------------------------------------------------------------------
   {
-    id: 16,
+    id: 52,
     name: 'Ice Corridors',
     world: 3,
     worldName: 'Ice Cavern',
@@ -654,10 +655,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 17 — Speed Boost
+  // Level 53 — Speed Boost
   // -----------------------------------------------------------------------
   {
-    id: 17,
+    id: 53,
     name: 'Speed Boost',
     world: 3,
     worldName: 'Ice Cavern',
@@ -696,10 +697,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 18 — Take It Slow
+  // Level 54 — Take It Slow
   // -----------------------------------------------------------------------
   {
-    id: 18,
+    id: 54,
     name: 'Take It Slow',
     world: 3,
     worldName: 'Ice Cavern',
@@ -741,10 +742,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 19 — Ice and Fire
+  // Level 55 — Ice and Fire
   // -----------------------------------------------------------------------
   {
-    id: 19,
+    id: 55,
     name: 'Ice and Fire',
     world: 3,
     worldName: 'Ice Cavern',
@@ -792,10 +793,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 20 — Frozen Temple
+  // Level 56 — Frozen Temple
   // -----------------------------------------------------------------------
   {
-    id: 20,
+    id: 56,
     name: 'Frozen Temple',
     world: 3,
     worldName: 'Ice Cavern',
@@ -851,10 +852,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 21 — Crystal Breather
+  // Level 57 — Crystal Breather
   // -----------------------------------------------------------------------
   {
-    id: 21,
+    id: 57,
     name: 'Crystal Breather',
     world: 3,
     worldName: 'Ice Cavern',
@@ -885,14 +886,14 @@ export const LEVELS = [
   },
 
   // =======================================================================
-  // World 4 — Shadow Forest (Levels 22-28)
+  // World 4 — Shadow Forest (Levels 76-82)
   // =======================================================================
 
   // -----------------------------------------------------------------------
-  // Level 22 — The Patrol
+  // Level 76 — The Patrol
   // -----------------------------------------------------------------------
   {
-    id: 22,
+    id: 76,
     name: 'The Patrol',
     world: 4,
     worldName: 'Shadow Forest',
@@ -927,10 +928,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 23 — Shadow Maze
+  // Level 77 — Shadow Maze
   // -----------------------------------------------------------------------
   {
-    id: 23,
+    id: 77,
     name: 'Shadow Maze',
     world: 4,
     worldName: 'Shadow Forest',
@@ -983,10 +984,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 24 — Forest Gauntlet
+  // Level 78 — Forest Gauntlet
   // -----------------------------------------------------------------------
   {
-    id: 24,
+    id: 78,
     name: 'Forest Gauntlet',
     world: 4,
     worldName: 'Shadow Forest',
@@ -1044,10 +1045,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 25 — Race the Clock
+  // Level 79 — Race the Clock
   // -----------------------------------------------------------------------
   {
-    id: 25,
+    id: 79,
     name: 'Race the Clock',
     world: 4,
     worldName: 'Shadow Forest',
@@ -1076,10 +1077,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 26 — Ticking Forest
+  // Level 80 — Ticking Forest
   // -----------------------------------------------------------------------
   {
-    id: 26,
+    id: 80,
     name: 'Ticking Forest',
     world: 4,
     worldName: 'Shadow Forest',
@@ -1139,10 +1140,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 27 — Poison Garden
+  // Level 81 — Poison Garden
   // -----------------------------------------------------------------------
   {
-    id: 27,
+    id: 81,
     name: 'Poison Garden',
     world: 4,
     worldName: 'Shadow Forest',
@@ -1182,10 +1183,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 28 — Shadow Realm
+  // Level 82 — Shadow Realm
   // -----------------------------------------------------------------------
   {
-    id: 28,
+    id: 82,
     name: 'Shadow Realm',
     world: 4,
     worldName: 'Shadow Forest',
@@ -1271,14 +1272,14 @@ export const LEVELS = [
   },
 
   // =======================================================================
-  // World 5 — Void Realm (Levels 29-35)
+  // World 5 — Void Realm (Levels 101-107)
   // =======================================================================
 
   // -----------------------------------------------------------------------
-  // Level 29 — Edge Walker
+  // Level 101 — Edge Walker
   // -----------------------------------------------------------------------
   {
-    id: 29,
+    id: 101,
     name: 'Edge Walker',
     world: 5,
     worldName: 'Void Realm',
@@ -1304,10 +1305,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 30 — Warp Maze
+  // Level 102 — Warp Maze
   // -----------------------------------------------------------------------
   {
-    id: 30,
+    id: 102,
     name: 'Warp Maze',
     world: 5,
     worldName: 'Void Realm',
@@ -1345,10 +1346,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 31 — Void Portals
+  // Level 103 — Void Portals
   // -----------------------------------------------------------------------
   {
-    id: 31,
+    id: 103,
     name: 'Void Portals',
     world: 5,
     worldName: 'Void Realm',
@@ -1395,10 +1396,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 32 — The Vault
+  // Level 104 — The Vault
   // -----------------------------------------------------------------------
   {
-    id: 32,
+    id: 104,
     name: 'The Vault',
     world: 5,
     worldName: 'Void Realm',
@@ -1459,10 +1460,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 33 — Gauntlet of Elements
+  // Level 105 — Gauntlet of Elements
   // -----------------------------------------------------------------------
   {
-    id: 33,
+    id: 105,
     name: 'Gauntlet of Elements',
     world: 5,
     worldName: 'Void Realm',
@@ -1540,10 +1541,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 34 — Cosmic Breather
+  // Level 106 — Cosmic Breather
   // -----------------------------------------------------------------------
   {
-    id: 34,
+    id: 106,
     name: 'Cosmic Breather',
     world: 5,
     worldName: 'Void Realm',
@@ -1576,10 +1577,10 @@ export const LEVELS = [
   },
 
   // -----------------------------------------------------------------------
-  // Level 35 — The Final Feast
+  // Level 107 — The Final Feast
   // -----------------------------------------------------------------------
   {
-    id: 35,
+    id: 107,
     name: 'The Final Feast',
     world: 5,
     worldName: 'Void Realm',
@@ -1719,6 +1720,14 @@ export const LEVELS = [
     newMechanic: null,
   },
 ];
+
+// ---------------------------------------------------------------------------
+// Merge procedurally generated levels (215 new levels for worlds 1-10)
+// ---------------------------------------------------------------------------
+LEVELS.push(...generateAllLevels());
+
+// Sort by id for consistent lookup
+LEVELS.sort((a, b) => a.id - b.id);
 
 // ---------------------------------------------------------------------------
 // Helper — inclusive integer range
