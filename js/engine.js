@@ -28,6 +28,7 @@ export function createEngine() {
   let _onScoreChange = null;
   let _onFoodEaten = null;
   let _onHeartCollected = null;
+  let _onKeyCollect = null;
 
   // ---- Helper: check if a tile is deadly for the snake ----
 
@@ -172,15 +173,17 @@ export function createEngine() {
 
       case ELEM.KEY:
         if (tile.data) {
-          session.keysCollected.add(tile.data.color);
+          const keyColor = tile.data.color; // capture before clearTile nullifies tile.data
+          session.keysCollected.add(keyColor);
           clearTile(session.grid, pos.x, pos.y);
           // Clear all gates of the matching color
           const gates = findTiles(session.grid, ELEM.GATE);
           for (const gate of gates) {
-            if (gate.data && gate.data.color === tile.data.color) {
+            if (gate.data && gate.data.color === keyColor) {
               clearTile(session.grid, gate.x, gate.y);
             }
           }
+          if (_onKeyCollect) _onKeyCollect(keyColor);
         }
         break;
 
@@ -522,6 +525,10 @@ export function createEngine() {
   Object.defineProperty(engine, 'onHeartCollected', {
     set(fn) { _onHeartCollected = fn; },
     get() { return _onHeartCollected; },
+  });
+  Object.defineProperty(engine, 'onKeyCollect', {
+    set(fn) { _onKeyCollect = fn; },
+    get() { return _onKeyCollect; },
   });
 
   return engine;

@@ -1062,6 +1062,10 @@ function startGameplay(levelId) {
     if (heartsEl) heartsEl.innerHTML = renderHearts(lives);
   };
 
+  engine.onKeyCollect = (color) => {
+    audio.keyCollect();
+  };
+
   engine.onDeath = (cause) => {
     audio.death();
     audio.lifeLost();
