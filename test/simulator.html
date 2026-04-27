@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Snake — Level Simulator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0f0e17;
+      color: #e8e8e8;
+      font-family: Inter, sans-serif;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    h1 {
+      font-family: 'Press Start 2P', monospace;
+      color: #00ff41;
+      font-size: 16px;
+      margin-bottom: 20px;
+    }
+    button {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 10px;
+      padding: 10px 18px;
+      border: 2px solid #00ff41;
+      background: transparent;
+      color: #00ff41;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    button:hover {
+      background: #00ff41;
+      color: #0f0e17;
+    }
+    button:active {
+      transform: scale(0.97);
+    }
+    button:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    input[type="number"] {
+      font-family: Inter, sans-serif;
+      font-size: 14px;
+      padding: 8px 12px;
+      width: 80px;
+      border: 2px solid #555568;
+      background: #1a1a2e;
+      color: #e8e8e8;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    input[type="number"]:focus {
+      border-color: #00ff41;
+    }
+    input[type="number"]::-webkit-inner-spin-button,
+    input[type="number"]::-webkit-outer-spin-button {
+      opacity: 1;
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .status {
+      font-size: 12px;
+      color: #555568;
+      margin-bottom: 16px;
+      min-height: 18px;
+    }
+    .summary {
+      display: flex;
+      gap: 24px;
+      margin-bottom: 16px;
+      font-size: 13px;
+    }
+    .summary-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .summary-label { color: #555568; }
+    .summary-value { font-weight: 700; }
+    .summary-pass { color: #00ff41; }
+    .summary-fail { color: #ff3333; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+    }
+    th, td {
+      padding: 8px 12px;
+      text-align: left;
+      border-bottom: 1px solid #1a1a2e;
+      font-size: 13px;
+    }
+    th {
+      font-family: 'Press Start 2P', monospace;
+      font-size: 9px;
+      color: #555568;
+      padding-bottom: 12px;
+      white-space: nowrap;
+    }
+    td { vertical-align: middle; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+    .pass { color: #00ff41; font-weight: 700; }
+    .fail { color: #ff3333; font-weight: 700; }
+    .reason { color: #ff8800; font-size: 12px; max-width: 320px; }
+    .world-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .world-1 { background: #2d5a27; color: #e8e8e8; }
+    .world-2 { background: #c4a35a; color: #0f0e17; }
+    .world-3 { background: #7fdbda; color: #0f0e17; }
+    .world-4 { background: #6b3fa0; color: #e8e8e8; }
+    .world-5 { background: #9d4edd; color: #e8e8e8; }
+    .mono { font-family: 'Courier New', monospace; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Level Simulator</h1>
+
+  <div class="controls">
+    <button id="run-all">Run All Levels</button>
+    <input id="level-id" type="number" value="1" min="1" />
+    <button id="run-single">Run Single</button>
+  </div>
+
+  <div id="status" class="status"></div>
+  <div id="summary" class="summary" style="display:none;"></div>
+  <div id="results"></div>
+
+  <script type="module">
+    import { simulateAll, simulateLevel } from '../js/simulator.js';
+
+    const btnAll = document.getElementById('run-all');
+    const btnSingle = document.getElementById('run-single');
+    const inputId = document.getElementById('level-id');
+    const statusEl = document.getElementById('status');
+    const summaryEl = document.getElementById('summary');
+    const resultsEl = document.getElementById('results');
+
+    function worldBadge(world) {
+      return `<span class="world-badge world-${world}">W${world}</span>`;
+    }
+
+    function renderTable(rows) {
+      if (rows.length === 0) {
+        resultsEl.innerHTML = '<p style="color:#555568;">No results.</p>';
+        return;
+      }
+
+      const passCount = rows.filter(r => r.solvable).length;
+      const failCount = rows.length - passCount;
+
+      summaryEl.style.display = 'flex';
+      summaryEl.innerHTML = `
+        <div class="summary-item">
+          <span class="summary-label">Total:</span>
+          <span class="summary-value">${rows.length}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Pass:</span>
+          <span class="summary-value summary-pass">${passCount}</span>
+        </div>
+        <div class="summary-item">
+          <span class="summary-label">Fail:</span>
+          <span class="summary-value ${failCount > 0 ? 'summary-fail' : ''}">${failCount}</span>
+        </div>
+      `;
+
+      let html = `<table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>World</th>
+            <th>Solvable</th>
+            <th>Steps</th>
+            <th>Food</th>
+            <th>Final Len</th>
+            <th>Reason</th>
+          </tr>
+        </thead>
+        <tbody>`;
+
+      for (const r of rows) {
+        html += `<tr>
+          <td class="mono">${r.id}</td>
+          <td>${r.name || '—'}</td>
+          <td>${r.world ? worldBadge(r.world) : '—'}</td>
+          <td class="${r.solvable ? 'pass' : 'fail'}">${r.solvable ? '\u2713' : '\u2717'}</td>
+          <td class="mono">${r.steps != null ? r.steps : '—'}</td>
+          <td class="mono">${r.foodEaten != null ? r.foodEaten : '—'}</td>
+          <td class="mono">${r.finalLength != null ? r.finalLength : '—'}</td>
+          <td class="reason">${r.reason || ''}</td>
+        </tr>`;
+      }
+
+      html += '</tbody></table>';
+      resultsEl.innerHTML = html;
+    }
+
+    btnAll.addEventListener('click', () => {
+      btnAll.disabled = true;
+      btnSingle.disabled = true;
+      statusEl.textContent = 'Running all levels...';
+      summaryEl.style.display = 'none';
+      resultsEl.innerHTML = '';
+
+      // Use setTimeout to let the UI update before blocking
+      setTimeout(() => {
+        try {
+          const results = simulateAll();
+          renderTable(results);
+          statusEl.textContent = `Done — ${results.length} level(s) simulated.`;
+        } catch (err) {
+          statusEl.textContent = `Error: ${err.message}`;
+          console.error(err);
+        }
+        btnAll.disabled = false;
+        btnSingle.disabled = false;
+      }, 20);
+    });
+
+    btnSingle.addEventListener('click', () => {
+      const id = parseInt(inputId.value, 10);
+      if (isNaN(id) || id < 1) {
+        statusEl.textContent = 'Enter a valid level ID.';
+        return;
+      }
+
+      btnAll.disabled = true;
+      btnSingle.disabled = true;
+      statusEl.textContent = `Running level ${id}...`;
+      summaryEl.style.display = 'none';
+      resultsEl.innerHTML = '';
+
+      setTimeout(() => {
+        try {
+          const result = simulateLevel(id);
+          renderTable([{ id, ...result }]);
+          statusEl.textContent = `Done — level ${id} ${result.solvable ? 'is solvable' : 'is NOT solvable'}.`;
+        } catch (err) {
+          statusEl.textContent = `Error: ${err.message}`;
+          console.error(err);
+        }
+        btnAll.disabled = false;
+        btnSingle.disabled = false;
+      }, 20);
+    });
+
+    // Allow Enter key in the input to trigger single run
+    inputId.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') btnSingle.click();
+    });
+  </script>
+</body>
+</html>

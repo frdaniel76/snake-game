@@ -83,13 +83,22 @@ export function createRenderer(canvas) {
 
   return {
     resize(canvasW, canvasH, boardW, boardH) {
-      scale = Math.max(1, Math.floor(Math.min(canvasW / (boardW * TILE), canvasH / (boardH * TILE))));
+      // Use device pixel ratio for crisp rendering, allow fractional scale
+      const dpr = window.devicePixelRatio || 1;
+      // Reserve 48px top for HUD
+      const availH = canvasH - 48;
+      const rawScale = Math.min(canvasW / (boardW * TILE), availH / (boardH * TILE));
+      // Use the full available scale for maximum board size on mobile
+      scale = Math.max(1, rawScale);
       const totalW = boardW * TILE * scale;
       const totalH = boardH * TILE * scale;
-      canvas.width = canvasW;
-      canvas.height = canvasH;
+      canvas.width = canvasW * dpr;
+      canvas.height = canvasH * dpr;
+      canvas.style.width = canvasW + 'px';
+      canvas.style.height = canvasH + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       offsetX = Math.floor((canvasW - totalW) / 2);
-      offsetY = Math.floor((canvasH - totalH) / 2);
+      offsetY = Math.floor((canvasH - totalH) / 2) + 24; // shift down for HUD
       ctx.imageSmoothingEnabled = false;
       rebuildCache(scale);
     },
