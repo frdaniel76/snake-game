@@ -94,6 +94,32 @@ export function createInput(element) {
 
   // ---- D-pad overlay ----
 
+  // Map a touch position to a cardinal direction based on angle from D-pad center.
+  // This means ANY touch in the D-pad region registers — no need to hit exact buttons.
+  function dirFromAngle(tx, ty, rect) {
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const dx = tx - cx;
+    const dy = ty - cy;
+    // Dead zone in the very center (< 10px from center) — ignore
+    if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return null;
+    // Use angle to pick cardinal direction (4 quadrants, 90° each)
+    if (Math.abs(dx) > Math.abs(dy)) {
+      return dx > 0 ? 'RIGHT' : 'LEFT';
+    }
+    return dy > 0 ? 'DOWN' : 'UP';
+  }
+
+  function highlightDpadBtn(dir) {
+    if (!dpadEl) return;
+    // Brief visual feedback on the matching button
+    const btn = dpadEl.querySelector(`.dpad-${dir.toLowerCase()}`);
+    if (btn) {
+      btn.classList.add('active-feedback');
+      setTimeout(() => btn.classList.remove('active-feedback'), 150);
+    }
+  }
+
   function createDpad() {
     if (dpadEl) dpadEl.remove();
     dpadEl = document.createElement('div');
@@ -106,18 +132,43 @@ export function createInput(element) {
     `;
     document.body.appendChild(dpadEl);
 
-    dpadEl.querySelectorAll('.dpad-btn').forEach(btn => {
-      btn.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        emit(btn.dataset.dir);
-      }, { passive: false });
-      // Also support mouse clicks for desktop testing
-      btn.addEventListener('mousedown', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        emit(btn.dataset.dir);
-      });
+    // Smart zone: the entire container is a touch target.
+    // Any touch is mapped to a direction by angle from center.
+    dpadEl.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const t = e.touches[0];
+      const rect = dpadEl.getBoundingClientRect();
+      const dir = dirFromAngle(t.clientX, t.clientY, rect);
+      if (dir) {
+        emit(dir);
+        highlightDpadBtn(dir);
+      }
+    }, { passive: false });
+
+    // Support touchmove — if finger drags to a new direction, emit that too
+    dpadEl.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const t = e.touches[0];
+      const rect = dpadEl.getBoundingClientRect();
+      const dir = dirFromAngle(t.clientX, t.clientY, rect);
+      if (dir) {
+        emit(dir);
+        highlightDpadBtn(dir);
+      }
+    }, { passive: false });
+
+    // Mouse fallback for desktop testing
+    dpadEl.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = dpadEl.getBoundingClientRect();
+      const dir = dirFromAngle(e.clientX, e.clientY, rect);
+      if (dir) {
+        emit(dir);
+        highlightDpadBtn(dir);
+      }
     });
   }
 

@@ -470,6 +470,7 @@ body {
   height: 190px;
   z-index: 30;
   pointer-events: auto;
+  touch-action: none;
   display: grid;
   grid-template-areas:
     ". up ."
@@ -478,6 +479,9 @@ body {
   grid-template-columns: 1fr 1fr 1fr;
   grid-template-rows: 1fr 1fr 1fr;
   gap: 3px;
+  /* Expand the actual touch area beyond the visible D-pad */
+  padding: 16px;
+  margin: -16px;
 }
 
 .dpad-btn {
@@ -489,16 +493,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  touch-action: manipulation;
+  pointer-events: none; /* Container handles all touches via angle detection */
   user-select: none;
   -webkit-user-select: none;
-  /* Extend touch target beyond visible bounds */
-  padding: 8px;
-  margin: -6px;
+  transition: background 0.1s, border-color 0.1s, color 0.1s;
 }
 
-.dpad-btn:active {
+.dpad-btn:active,
+.dpad-btn.active-feedback {
   background: rgba(0, 255, 65, 0.3);
   border-color: rgba(0, 255, 65, 0.5);
   color: rgba(0, 255, 65, 0.8);
