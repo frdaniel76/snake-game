@@ -460,12 +460,32 @@ body {
   gap: 2px;
 }
 
+.control-test-dual {
+  position: absolute;
+  inset: 0;
+  display: flex;
+}
+
+.control-test-dual-zone {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: rgba(255, 255, 255, 0.12);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.control-test-dual-zone:first-child {
+  border-right: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
 /* ===== D-Pad Overlay ===== */
 .dpad-container {
   position: fixed;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 20px;
+  right: 12px;
   width: 190px;
   height: 190px;
   z-index: 30;
@@ -510,3 +530,44 @@ body {
 .dpad-left { grid-area: left; }
 .dpad-right { grid-area: right; }
 .dpad-down { grid-area: down; }
+
+/* ===== Dual Pad Overlay ===== */
+.dual-pad {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 40%;
+  z-index: 30;
+  pointer-events: auto;
+  touch-action: none;
+  display: flex;
+}
+
+.dual-pad-zone {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  transition: background 0.1s;
+}
+
+.dual-pad-left {
+  border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.dual-pad-zone .dual-pad-icon {
+  font-size: 36px;
+  color: rgba(255, 255, 255, 0.12);
+  pointer-events: none;
+  user-select: none;
+}
+
+.dual-pad-zone.active-feedback {
+  background: rgba(0, 255, 65, 0.08);
+}
+
+.dual-pad-zone.active-feedback .dual-pad-icon {
+  color: rgba(0, 255, 65, 0.35);
+}

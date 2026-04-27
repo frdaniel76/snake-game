@@ -38,8 +38,7 @@ let levelStars = {}; // { levelId: starCount } — missing means not completed
 
 // Settings
 let settings = {
-  controlScheme: 'swipe',
-  swipeSensitivity: 'medium',
+  controlScheme: 'tap',
   soundEnabled: true,
   soundTheme: 'classic',
   snakeSkin: 'classic',
@@ -81,8 +80,11 @@ function loadProgress() {
     }
   } catch (e) { /* ignore */ }
   // Apply loaded settings
+  // Migrate old settings to new modes
+  if (settings.controlScheme === 'swipe' || settings.controlScheme === 'dpad+swipe') {
+    settings.controlScheme = settings.controlScheme === 'swipe' ? 'tap' : 'dpad+tap';
+  }
   input.setMode(settings.controlScheme);
-  input.setSensitivity(settings.swipeSensitivity);
   audio.setEnabled(settings.soundEnabled);
   audio.setTheme(settings.soundTheme || 'classic');
   setSkin(settings.snakeSkin || 'classic');
@@ -268,26 +270,34 @@ function renderSettingsScreen() {
       <div class="settings-section">
         <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px;">CONTROLS</h3>
         <div class="settings-toggle-group settings-toggle-group-4" id="control-scheme-group">
-          <button data-mode="swipe" class="${settings.controlScheme === 'swipe' ? 'active' : ''}">Swipe</button>
           <button data-mode="tap" class="${settings.controlScheme === 'tap' ? 'active' : ''}">Tap</button>
           <button data-mode="dpad" class="${settings.controlScheme === 'dpad' ? 'active' : ''}">D-pad</button>
-          <button data-mode="dpad+swipe" class="${settings.controlScheme === 'dpad+swipe' ? 'active' : ''}">Both</button>
+          <button data-mode="dual" class="${settings.controlScheme === 'dual' ? 'active' : ''}">Dual</button>
+          <button data-mode="dpad+tap" class="${settings.controlScheme === 'dpad+tap' ? 'active' : ''}">Both</button>
         </div>
-        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px; margin-top: 14px;">SWIPE SENSITIVITY</h3>
-        <div class="settings-toggle-group" id="swipe-sensitivity-group">
-          <button data-sens="low" class="${settings.swipeSensitivity === 'low' ? 'active' : ''}">Low</button>
-          <button data-sens="medium" class="${settings.swipeSensitivity === 'medium' ? 'active' : ''}">Medium</button>
-          <button data-sens="high" class="${settings.swipeSensitivity === 'high' ? 'active' : ''}">High</button>
-        </div>
+        <div class="font-ui" style="color: ${COLORS.GREY}; font-size: 10px; margin-top: 8px; line-height: 1.4;" id="control-desc">${
+          settings.controlScheme === 'tap' ? 'Tap left/right half of screen to turn' :
+          settings.controlScheme === 'dpad' ? '4-way directional pad' :
+          settings.controlScheme === 'dual' ? 'Two zones: left = turn left, right = turn right' :
+          'D-pad + tap anywhere to turn'
+        }</div>
         <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px; margin-top: 14px;">TRY IT</h3>
         <div id="control-test-area" class="control-test-area">
           <div id="control-test-arrow" class="control-test-arrow">&#x25B6;</div>
-          <div id="control-test-hint" class="font-ui" style="color: ${COLORS.GREY}; font-size: 11px; position: absolute; bottom: 8px; width: 100%; text-align: center;">${settings.controlScheme === 'dpad' ? 'Tap the D-pad buttons' : settings.controlScheme === 'dpad+swipe' ? 'D-pad + swipe anywhere' : settings.controlScheme === 'tap' ? 'Tap left/right side' : 'Swipe in any direction'}</div>
-          <div id="control-test-dpad" style="display: ${settings.controlScheme === 'dpad' || settings.controlScheme === 'dpad+swipe' ? 'grid' : 'none'};" class="control-test-dpad">
+          <div id="control-test-hint" class="font-ui" style="color: ${COLORS.GREY}; font-size: 11px; position: absolute; bottom: 8px; width: 100%; text-align: center;">${
+            settings.controlScheme === 'dpad' || settings.controlScheme === 'dpad+tap' ? 'Tap the D-pad buttons' :
+            settings.controlScheme === 'dual' ? 'Tap left or right zone' :
+            'Tap left/right side'
+          }</div>
+          <div id="control-test-dpad" style="display: ${settings.controlScheme === 'dpad' || settings.controlScheme === 'dpad+tap' ? 'grid' : 'none'};" class="control-test-dpad">
             <button class="dpad-btn dpad-up" data-dir="UP">&#x25B2;</button>
             <button class="dpad-btn dpad-left" data-dir="LEFT">&#x25C4;</button>
             <button class="dpad-btn dpad-right" data-dir="RIGHT">&#x25BA;</button>
             <button class="dpad-btn dpad-down" data-dir="DOWN">&#x25BC;</button>
+          </div>
+          <div id="control-test-dual" style="display: ${settings.controlScheme === 'dual' ? 'flex' : 'none'};" class="control-test-dual">
+            <div class="control-test-dual-zone" data-side="left">&#x21B6;</div>
+            <div class="control-test-dual-zone" data-side="right">&#x21B7;</div>
           </div>
         </div>
       </div>
@@ -343,6 +353,8 @@ function renderSettingsScreen() {
   const testArrow = document.getElementById('control-test-arrow');
   const testHint = document.getElementById('control-test-hint');
   const testDpad = document.getElementById('control-test-dpad');
+  const testDual = document.getElementById('control-test-dual');
+  const controlDesc = document.getElementById('control-desc');
   const arrowChars = { UP: '\u25B2', DOWN: '\u25BC', LEFT: '\u25C4', RIGHT: '\u25BA' };
   const arrowRotations = { UP: '-90deg', DOWN: '90deg', LEFT: '180deg', RIGHT: '0deg' };
   let testResetTimer = null;
@@ -355,42 +367,30 @@ function renderSettingsScreen() {
     testResetTimer = setTimeout(() => testArrow.classList.remove('flash'), 400);
   }
 
+  const modeHints = { tap: 'Tap left/right side', dpad: 'Tap the D-pad buttons', dual: 'Tap left or right zone', 'dpad+tap': 'D-pad + tap to turn' };
+  const modeDescs = { tap: 'Tap left/right half of screen to turn', dpad: '4-way directional pad', dual: 'Two zones: left = turn left, right = turn right', 'dpad+tap': 'D-pad + tap anywhere to turn' };
+
   function updateTestAreaForMode(mode) {
-    const hints = { swipe: 'Swipe in any direction', tap: 'Tap left/right side', dpad: 'Tap the D-pad buttons', 'dpad+swipe': 'D-pad + swipe anywhere' };
-    testHint.textContent = hints[mode] || '';
-    testDpad.style.display = (mode === 'dpad' || mode === 'dpad+swipe') ? 'grid' : 'none';
+    testHint.textContent = modeHints[mode] || '';
+    controlDesc.textContent = modeDescs[mode] || '';
+    testDpad.style.display = (mode === 'dpad' || mode === 'dpad+tap') ? 'grid' : 'none';
+    testDual.style.display = mode === 'dual' ? 'flex' : 'none';
   }
 
-  // Swipe/tap handling on the test area
-  let testTouchStartX = 0, testTouchStartY = 0;
-  testArea.addEventListener('touchstart', (e) => {
-    if (settings.controlScheme === 'dpad') return; // dpad-only: no swipe
-    testTouchStartX = e.touches[0].clientX;
-    testTouchStartY = e.touches[0].clientY;
-    e.stopPropagation();
-  }, { passive: true });
+  // Tap handling on the test area (works for tap, dual, dpad+tap)
   testArea.addEventListener('touchend', (e) => {
-    if (settings.controlScheme === 'dpad') return;
+    const scheme = settings.controlScheme;
+    if (scheme === 'dpad') return;
     const t = e.changedTouches[0];
-    const dx = t.clientX - testTouchStartX;
-    const dy = t.clientY - testTouchStartY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if ((settings.controlScheme === 'swipe' || settings.controlScheme === 'dpad+swipe') && dist >= 15) {
-      showTestDirection(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'RIGHT' : 'LEFT') : (dy > 0 ? 'DOWN' : 'UP'));
-    } else if (settings.controlScheme === 'tap' && dist < 15) {
-      const rect = testArea.getBoundingClientRect();
-      const side = t.clientX < rect.left + rect.width / 2 ? 'LEFT' : 'RIGHT';
-      showTestDirection(side);
-    }
+    const rect = testArea.getBoundingClientRect();
+    const side = t.clientX < rect.left + rect.width / 2 ? 'LEFT' : 'RIGHT';
+    showTestDirection(side);
     e.stopPropagation();
   }, { passive: true });
-  // Mouse fallback for desktop testing
   testArea.addEventListener('click', (e) => {
     if (settings.controlScheme === 'dpad') return;
-    if (settings.controlScheme === 'tap') {
-      const rect = testArea.getBoundingClientRect();
-      showTestDirection(e.clientX < rect.left + rect.width / 2 ? 'LEFT' : 'RIGHT');
-    }
+    const rect = testArea.getBoundingClientRect();
+    showTestDirection(e.clientX < rect.left + rect.width / 2 ? 'LEFT' : 'RIGHT');
   });
 
   // D-pad buttons in test area
@@ -406,6 +406,19 @@ function renderSettingsScreen() {
     });
   });
 
+  // Dual-pad zones in test area
+  testDual.querySelectorAll('.control-test-dual-zone').forEach(zone => {
+    zone.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showTestDirection(zone.dataset.side === 'left' ? 'LEFT' : 'RIGHT');
+    }, { passive: false });
+    zone.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      showTestDirection(zone.dataset.side === 'left' ? 'LEFT' : 'RIGHT');
+    });
+  });
+
   // Control scheme buttons
   document.querySelectorAll('#control-scheme-group button').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -416,19 +429,6 @@ function renderSettingsScreen() {
       document.querySelectorAll('#control-scheme-group button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       updateTestAreaForMode(mode);
-      saveProgress();
-    });
-  });
-
-  // Swipe sensitivity buttons
-  document.querySelectorAll('#swipe-sensitivity-group button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      audio.buttonTap();
-      const sens = btn.dataset.sens;
-      settings.swipeSensitivity = sens;
-      input.setSensitivity(sens);
-      document.querySelectorAll('#swipe-sensitivity-group button').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
       saveProgress();
     });
   });
@@ -520,9 +520,9 @@ function renderSettingsScreen() {
       lives = LIVES_START;
       currentLevelId = 1;
       levelStars = {};
-      settings = { controlScheme: 'swipe', swipeSensitivity: 'medium', soundEnabled: true, soundTheme: 'classic', snakeSkin: 'classic', vibration: true, gridLines: true, screenShake: true };
+      settings = { controlScheme: 'tap', soundEnabled: true, soundTheme: 'classic', snakeSkin: 'classic', vibration: true, gridLines: true, screenShake: true };
       stats = { totalDeaths: 0, totalFoodEaten: 0, totalPlayTime: 0, longestSnake: 0, levelsCompleted: 0, perfectLevels: 0 };
-      input.setMode('swipe');
+      input.setMode('tap');
       audio.setEnabled(true);
       showScreen('menu');
     };
@@ -922,8 +922,8 @@ function startGameplay(levelId) {
   // Activate touch input for gameplay
   input.setActive(true);
 
-  // Show D-pad if using dpad or combo control scheme
-  if (settings.controlScheme === 'dpad' || settings.controlScheme === 'dpad+swipe') {
+  // Show control overlays (D-pad, dual pad) for modes that need them
+  if (settings.controlScheme !== 'tap') {
     input.showDpad();
   }
 
@@ -1164,7 +1164,7 @@ function showPauseOverlay() {
       sessionPlayStart = Date.now();
       engine.resume();
       input.setActive(true);
-      if (settings.controlScheme === 'dpad' || settings.controlScheme === 'dpad+swipe') input.showDpad();
+      if (settings.controlScheme !== 'tap') input.showDpad();
     });
   };
   document.getElementById('btn-restart').onclick = () => {

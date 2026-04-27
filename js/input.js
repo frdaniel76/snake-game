@@ -1,66 +1,45 @@
 export function createInput(element) {
   let dirCallback = null;
-  let mode = 'swipe'; // 'swipe' | 'tap' | 'dpad' | 'dpad+swipe'
-  let currentSnakeDir = 'RIGHT'; // needed for tap-to-turn
-  let active = false; // true only during gameplay — prevents touch interference on menus
+  let mode = 'tap'; // 'tap' | 'dpad' | 'dual' | 'dpad+tap'
+  let currentSnakeDir = 'RIGHT'; // needed for tap-to-turn and dual-pad
+  let active = false; // true only during gameplay
 
-  let SWIPE_THRESHOLD = 20; // minimum px — configurable via setSensitivity
   let dpadEl = null;
-  let touchStartX = 0;
-  let touchStartY = 0;
-  let touchStartTime = 0;
+  let dualPadEl = null;
 
-  // ---- Swipe / tap handling ----
-  // Registered on document so touches are captured regardless of z-index stacking.
-  // UI buttons (menus, d-pad) have their own handlers with stopPropagation.
+  // ---- UI element filter ----
 
   function isUIElement(target) {
-    // Skip touches that land on interactive UI elements (buttons, toggles, links)
     if (!target || !target.closest) return false;
     if (target.closest('.dpad-container')) return true;
+    if (target.closest('.dual-pad')) return true;
     if (target.closest('button')) return true;
     if (target.closest('.toggle-switch')) return true;
     if (target.closest('a')) return true;
     return false;
   }
 
+  // ---- Tap handling (document-level) ----
+  // Tap mode: tap left/right half of screen to turn relative to snake direction.
+  // Also active in dpad+tap combo mode.
+
   function onTouchStart(e) {
     if (!active || isUIElement(e.target)) return;
-    const t = e.touches[0];
-    touchStartX = t.clientX;
-    touchStartY = t.clientY;
-    touchStartTime = Date.now();
     e.preventDefault();
   }
 
   function onTouchMove(e) {
     if (!active || isUIElement(e.target)) return;
-    // Prevent scrolling and zooming while playing
     e.preventDefault();
   }
 
   function onTouchEnd(e) {
     if (!active || isUIElement(e.target)) return;
-    const t = e.changedTouches[0];
-    const dx = t.clientX - touchStartX;
-    const dy = t.clientY - touchStartY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-
-    if (mode === 'swipe' || mode === 'tap' || mode === 'dpad+swipe') {
-      if (dist >= SWIPE_THRESHOLD) {
-        // Swipe detected — map to absolute direction
-        if (Math.abs(dx) > Math.abs(dy)) {
-          emit(dx > 0 ? 'RIGHT' : 'LEFT');
-        } else {
-          emit(dy > 0 ? 'DOWN' : 'UP');
-        }
-      } else if (mode === 'tap') {
-        // Short tap — turn relative to snake direction
-        const tapX = t.clientX;
-        const midX = window.innerWidth / 2;
-        const tapSide = tapX < midX ? 'left' : 'right';
-        emit(relativeTurn(currentSnakeDir, tapSide));
-      }
+    if (mode === 'tap' || mode === 'dpad+tap') {
+      const t = e.changedTouches[0];
+      const midX = window.innerWidth / 2;
+      const tapSide = t.clientX < midX ? 'left' : 'right';
+      emit(relativeTurn(currentSnakeDir, tapSide));
     }
     e.preventDefault();
   }
@@ -94,16 +73,12 @@ export function createInput(element) {
 
   // ---- D-pad overlay ----
 
-  // Map a touch position to a cardinal direction based on angle from D-pad center.
-  // This means ANY touch in the D-pad region registers — no need to hit exact buttons.
   function dirFromAngle(tx, ty, rect) {
     const cx = rect.left + rect.width / 2;
     const cy = rect.top + rect.height / 2;
     const dx = tx - cx;
     const dy = ty - cy;
-    // Dead zone in the very center (< 10px from center) — ignore
     if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return null;
-    // Use angle to pick cardinal direction (4 quadrants, 90° each)
     if (Math.abs(dx) > Math.abs(dy)) {
       return dx > 0 ? 'RIGHT' : 'LEFT';
     }
@@ -112,7 +87,6 @@ export function createInput(element) {
 
   function highlightDpadBtn(dir) {
     if (!dpadEl) return;
-    // Brief visual feedback on the matching button
     const btn = dpadEl.querySelector(`.dpad-${dir.toLowerCase()}`);
     if (btn) {
       btn.classList.add('active-feedback');
@@ -132,43 +106,30 @@ export function createInput(element) {
     `;
     document.body.appendChild(dpadEl);
 
-    // Smart zone: the entire container is a touch target.
-    // Any touch is mapped to a direction by angle from center.
     dpadEl.addEventListener('touchstart', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const t = e.touches[0];
       const rect = dpadEl.getBoundingClientRect();
       const dir = dirFromAngle(t.clientX, t.clientY, rect);
-      if (dir) {
-        emit(dir);
-        highlightDpadBtn(dir);
-      }
+      if (dir) { emit(dir); highlightDpadBtn(dir); }
     }, { passive: false });
 
-    // Support touchmove — if finger drags to a new direction, emit that too
     dpadEl.addEventListener('touchmove', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const t = e.touches[0];
       const rect = dpadEl.getBoundingClientRect();
       const dir = dirFromAngle(t.clientX, t.clientY, rect);
-      if (dir) {
-        emit(dir);
-        highlightDpadBtn(dir);
-      }
+      if (dir) { emit(dir); highlightDpadBtn(dir); }
     }, { passive: false });
 
-    // Mouse fallback for desktop testing
     dpadEl.addEventListener('mousedown', (e) => {
       e.preventDefault();
       e.stopPropagation();
       const rect = dpadEl.getBoundingClientRect();
       const dir = dirFromAngle(e.clientX, e.clientY, rect);
-      if (dir) {
-        emit(dir);
-        highlightDpadBtn(dir);
-      }
+      if (dir) { emit(dir); highlightDpadBtn(dir); }
     });
   }
 
@@ -176,9 +137,45 @@ export function createInput(element) {
     if (dpadEl) { dpadEl.remove(); dpadEl = null; }
   }
 
+  // ---- Dual-pad overlay ----
+  // Two large transparent zones: left = turn left (anticlockwise), right = turn right (clockwise)
+
+  function createDualPad() {
+    if (dualPadEl) dualPadEl.remove();
+    dualPadEl = document.createElement('div');
+    dualPadEl.className = 'dual-pad';
+    dualPadEl.innerHTML = `
+      <div class="dual-pad-zone dual-pad-left" data-side="left">
+        <span class="dual-pad-icon">↶</span>
+      </div>
+      <div class="dual-pad-zone dual-pad-right" data-side="right">
+        <span class="dual-pad-icon">↷</span>
+      </div>
+    `;
+    document.body.appendChild(dualPadEl);
+
+    function handleDualTouch(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      const zone = e.target.closest('.dual-pad-zone');
+      if (!zone) return;
+      const side = zone.dataset.side;
+      const dir = relativeTurn(currentSnakeDir, side);
+      emit(dir);
+      // Visual feedback
+      zone.classList.add('active-feedback');
+      setTimeout(() => zone.classList.remove('active-feedback'), 150);
+    }
+
+    dualPadEl.addEventListener('touchstart', handleDualTouch, { passive: false });
+    dualPadEl.addEventListener('mousedown', handleDualTouch);
+  }
+
+  function removeDualPad() {
+    if (dualPadEl) { dualPadEl.remove(); dualPadEl = null; }
+  }
+
   // ---- Attach listeners ----
-  // Touch on document (not canvas) so touches are reliably captured on all mobile browsers.
-  // UI elements are filtered out in the handlers above.
 
   document.addEventListener('touchstart', onTouchStart, { passive: false });
   document.addEventListener('touchmove', onTouchMove, { passive: false });
@@ -188,47 +185,31 @@ export function createInput(element) {
   // ---- Public API ----
 
   return {
-    /** Register a callback for direction changes. cb receives 'UP'|'DOWN'|'LEFT'|'RIGHT'. */
-    onDirection(cb) {
-      dirCallback = cb;
-    },
+    onDirection(cb) { dirCallback = cb; },
 
-    /** Enable/disable touch input processing (use during gameplay only). */
-    setActive(isActive) {
-      active = isActive;
-    },
+    setActive(isActive) { active = isActive; },
 
-    /** Set input mode: 'swipe', 'tap', 'dpad', or 'dpad+swipe'. */
+    /** Set input mode: 'tap', 'dpad', 'dual', or 'dpad+tap'. */
     setMode(m) {
       mode = m;
-      if (m !== 'dpad' && m !== 'dpad+swipe') removeDpad();
+      if (m !== 'dpad' && m !== 'dpad+tap') removeDpad();
+      if (m !== 'dual') removeDualPad();
     },
 
-    /** Show the D-pad overlay (call when entering gameplay in dpad or dpad+swipe mode). */
+    /** Show overlays for the current mode (call when entering gameplay). */
     showDpad() {
-      if (mode === 'dpad' || mode === 'dpad+swipe') createDpad();
+      if (mode === 'dpad' || mode === 'dpad+tap') createDpad();
+      if (mode === 'dual') createDualPad();
     },
 
-    /** Hide the D-pad overlay (call when leaving gameplay). */
+    /** Hide all overlays (call when leaving gameplay). */
     hideDpad() {
       removeDpad();
+      removeDualPad();
     },
 
-    /** Set swipe sensitivity: 'low' (40px), 'medium' (20px), 'high' (10px). */
-    setSensitivity(level) {
-      switch (level) {
-        case 'low':    SWIPE_THRESHOLD = 40; break;
-        case 'high':   SWIPE_THRESHOLD = 10; break;
-        default:       SWIPE_THRESHOLD = 20; break; // medium
-      }
-    },
+    updateSnakeDir(dir) { currentSnakeDir = dir; },
 
-    /** Update the current snake direction (needed for tap-to-turn calculations). */
-    updateSnakeDir(dir) {
-      currentSnakeDir = dir;
-    },
-
-    /** Remove all event listeners. */
     destroy() {
       document.removeEventListener('touchstart', onTouchStart);
       document.removeEventListener('touchmove', onTouchMove);
