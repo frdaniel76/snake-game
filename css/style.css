@@ -441,6 +441,15 @@ body {
 
 .control-test-arrow.flash {
   color: #00ff41;
+  text-shadow: 0 0 12px #00ff41;
+}
+
+/* Tap feedback: flash the left or right half of the test area */
+.control-test-area.flash-left {
+  background: linear-gradient(to right, rgba(0, 255, 65, 0.12) 0%, rgba(0, 255, 65, 0.12) 50%, transparent 50%);
+}
+.control-test-area.flash-right {
+  background: linear-gradient(to right, transparent 50%, rgba(0, 255, 65, 0.12) 50%, rgba(0, 255, 65, 0.12) 100%);
 }
 
 .control-test-dpad {
@@ -513,10 +522,14 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  pointer-events: none; /* Container handles all touches via angle detection */
   user-select: none;
   -webkit-user-select: none;
   transition: background 0.1s, border-color 0.1s, color 0.1s;
+}
+
+/* In gameplay overlay, container handles touches — buttons are visual only */
+.dpad-container .dpad-btn {
+  pointer-events: none;
 }
 
 .dpad-btn:active,

@@ -363,8 +363,15 @@ function renderSettingsScreen() {
     testArrow.textContent = arrowChars[dir] || '\u25BA';
     testArrow.style.transform = `translate(-50%, -50%) rotate(${arrowRotations[dir] || '0deg'})`;
     testArrow.classList.add('flash');
+    // Flash the side of the test area for visual feedback
+    testArea.classList.remove('flash-left', 'flash-right');
+    if (dir === 'LEFT') testArea.classList.add('flash-left');
+    else if (dir === 'RIGHT') testArea.classList.add('flash-right');
     clearTimeout(testResetTimer);
-    testResetTimer = setTimeout(() => testArrow.classList.remove('flash'), 400);
+    testResetTimer = setTimeout(() => {
+      testArrow.classList.remove('flash');
+      testArea.classList.remove('flash-left', 'flash-right');
+    }, 400);
   }
 
   const modeHints = { tap: 'Tap left/right side', dpad: 'Tap the D-pad buttons', dual: 'Tap left or right zone', 'dpad+tap': 'D-pad + tap to turn' };
@@ -378,19 +385,20 @@ function renderSettingsScreen() {
   }
 
   // Tap handling on the test area (works for tap, dual, dpad+tap)
-  testArea.addEventListener('touchend', (e) => {
+  function handleTestTap(x) {
     const scheme = settings.controlScheme;
     if (scheme === 'dpad') return;
-    const t = e.changedTouches[0];
     const rect = testArea.getBoundingClientRect();
-    const side = t.clientX < rect.left + rect.width / 2 ? 'LEFT' : 'RIGHT';
+    const side = x < rect.left + rect.width / 2 ? 'LEFT' : 'RIGHT';
     showTestDirection(side);
+  }
+  testArea.addEventListener('touchstart', (e) => {
     e.stopPropagation();
+    const t = e.touches[0];
+    handleTestTap(t.clientX);
   }, { passive: true });
   testArea.addEventListener('click', (e) => {
-    if (settings.controlScheme === 'dpad') return;
-    const rect = testArea.getBoundingClientRect();
-    showTestDirection(e.clientX < rect.left + rect.width / 2 ? 'LEFT' : 'RIGHT');
+    handleTestTap(e.clientX);
   });
 
   // D-pad buttons in test area
