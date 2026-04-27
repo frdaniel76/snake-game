@@ -1,6 +1,6 @@
 export function createInput(element) {
   let dirCallback = null;
-  let mode = 'swipe'; // 'swipe' | 'tap' | 'dpad'
+  let mode = 'swipe'; // 'swipe' | 'tap' | 'dpad' | 'dpad+swipe'
   let currentSnakeDir = 'RIGHT'; // needed for tap-to-turn
 
   let SWIPE_THRESHOLD = 20; // minimum px — configurable via setSensitivity
@@ -30,7 +30,7 @@ export function createInput(element) {
     const dy = t.clientY - touchStartY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
-    if (mode === 'swipe' || mode === 'tap') {
+    if (mode === 'swipe' || mode === 'tap' || mode === 'dpad+swipe') {
       if (dist >= SWIPE_THRESHOLD) {
         // Swipe detected — map to absolute direction
         if (Math.abs(dx) > Math.abs(dy)) {
@@ -124,15 +124,15 @@ export function createInput(element) {
       dirCallback = cb;
     },
 
-    /** Set input mode: 'swipe', 'tap', or 'dpad'. */
+    /** Set input mode: 'swipe', 'tap', 'dpad', or 'dpad+swipe'. */
     setMode(m) {
       mode = m;
-      if (m !== 'dpad') removeDpad();
+      if (m !== 'dpad' && m !== 'dpad+swipe') removeDpad();
     },
 
-    /** Show the D-pad overlay (call when entering gameplay in dpad mode). */
+    /** Show the D-pad overlay (call when entering gameplay in dpad or dpad+swipe mode). */
     showDpad() {
-      if (mode === 'dpad') createDpad();
+      if (mode === 'dpad' || mode === 'dpad+swipe') createDpad();
     },
 
     /** Hide the D-pad overlay (call when leaving gameplay). */

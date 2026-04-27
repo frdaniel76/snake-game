@@ -273,6 +273,11 @@ body {
   color: #0f0e17;
 }
 
+.settings-toggle-group-4 button {
+  font-size: 11px;
+  padding: 10px 4px;
+}
+
 .settings-row {
   display: flex;
   justify-content: space-between;
@@ -457,10 +462,11 @@ body {
 /* ===== D-Pad Overlay ===== */
 .dpad-container {
   position: fixed;
-  bottom: 24px;
-  right: 16px;
-  width: 140px;
-  height: 140px;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 190px;
+  height: 190px;
   z-index: 30;
   pointer-events: auto;
   display: grid;
@@ -470,15 +476,15 @@ body {
     ". down .";
   grid-template-columns: 1fr 1fr 1fr;
   grid-template-rows: 1fr 1fr 1fr;
-  gap: 2px;
+  gap: 3px;
 }
 
 .dpad-btn {
   background: rgba(255, 255, 255, 0.1);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 20px;
+  border: 2px solid rgba(255, 255, 255, 0.25);
+  border-radius: 10px;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -486,6 +492,9 @@ body {
   touch-action: manipulation;
   user-select: none;
   -webkit-user-select: none;
+  /* Extend touch target beyond visible bounds */
+  padding: 8px;
+  margin: -6px;
 }
 
 .dpad-btn:active {
