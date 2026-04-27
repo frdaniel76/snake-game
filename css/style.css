@@ -1,0 +1,216 @@
+/* ===== Reset & Base ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  overflow: hidden;
+  background-color: #0f0e17;
+  color: #e8e8e8;
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+/* ===== App Container ===== */
+#app {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+/* ===== Canvas ===== */
+#game-canvas {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ===== UI Layer ===== */
+#ui-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+}
+
+#ui-layer > * {
+  pointer-events: auto;
+}
+
+/* ===== Font Classes ===== */
+.font-pixel {
+  font-family: 'Press Start 2P', monospace;
+}
+
+.font-ui {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* ===== Buttons ===== */
+.btn {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 8px;
+  padding: 14px 24px;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+  min-height: 48px;
+  transition: transform 0.1s ease;
+  outline: none;
+}
+
+.btn:active {
+  transform: scale(0.95);
+}
+
+.btn-primary {
+  background-color: #00ff41;
+  color: #0f0e17;
+}
+
+.btn-secondary {
+  background-color: #1a1a2e;
+  color: #e8e8e8;
+  border: 2px solid #555568;
+}
+
+.btn-danger {
+  background-color: transparent;
+  color: #ff3333;
+}
+
+/* ===== Screens ===== */
+.screen {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0px));
+  padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  padding-left: calc(16px + env(safe-area-inset-left, 0px));
+  padding-right: calc(16px + env(safe-area-inset-right, 0px));
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.screen.active {
+  opacity: 1;
+}
+
+/* ===== HUD ===== */
+.hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  padding-top: calc(8px + env(safe-area-inset-top, 0px));
+  font-family: 'Press Start 2P', monospace;
+  font-size: 10px;
+  color: #e8e8e8;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.hud-left,
+.hud-center,
+.hud-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hud-lives {
+  color: #ff3333;
+}
+
+.hud-score {
+  color: #ffc800;
+}
+
+.hud-level {
+  color: #00d4ff;
+}
+
+/* ===== Modal Overlay ===== */
+.modal-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: rgba(15, 14, 23, 0.85);
+  z-index: 50;
+  pointer-events: auto;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.modal-overlay.active {
+  opacity: 1;
+}
+
+.modal {
+  background-color: #1a1a2e;
+  border-radius: 12px;
+  padding: 24px;
+  max-width: 320px;
+  width: 90%;
+  text-align: center;
+  border: 1px solid #555568;
+}
+
+.modal h2 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  margin-bottom: 16px;
+  color: #00ff41;
+}
+
+.modal p {
+  font-size: 14px;
+  color: #888899;
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.modal .btn + .btn {
+  margin-top: 10px;
+}
+
+/* ===== Utility ===== */
+.text-green { color: #00ff41; }
+.text-blue { color: #00d4ff; }
+.text-gold { color: #ffc800; }
+.text-red { color: #ff3333; }
+.text-muted { color: #555568; }
+.text-center { text-align: center; }
+
+.mt-auto { margin-top: auto; }
+.mb-8 { margin-bottom: 8px; }
+.mb-16 { margin-bottom: 16px; }
+.mb-24 { margin-bottom: 24px; }
+.gap-8 { gap: 8px; }
+.gap-12 { gap: 12px; }
+.w-full { width: 100%; }
