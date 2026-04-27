@@ -179,7 +179,6 @@ let currentScreen = null;
 
 function showScreen(name, data) {
   uiLayer.innerHTML = '';
-  uiLayer.style.pointerEvents = 'auto';
   currentScreen = name;
 
   switch (name) {
@@ -273,6 +272,17 @@ function renderSettingsScreen() {
           <button data-sens="medium" class="${settings.swipeSensitivity === 'medium' ? 'active' : ''}">Medium</button>
           <button data-sens="high" class="${settings.swipeSensitivity === 'high' ? 'active' : ''}">High</button>
         </div>
+        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px; margin-top: 14px;">TRY IT</h3>
+        <div id="control-test-area" class="control-test-area">
+          <div id="control-test-arrow" class="control-test-arrow">&#x25B6;</div>
+          <div id="control-test-hint" class="font-ui" style="color: ${COLORS.GREY}; font-size: 11px; position: absolute; bottom: 8px; width: 100%; text-align: center;">${settings.controlScheme === 'dpad' ? 'Tap the D-pad buttons' : settings.controlScheme === 'tap' ? 'Tap left/right side' : 'Swipe in any direction'}</div>
+          <div id="control-test-dpad" style="display: ${settings.controlScheme === 'dpad' ? 'grid' : 'none'};" class="control-test-dpad">
+            <button class="dpad-btn dpad-up" data-dir="UP">&#x25B2;</button>
+            <button class="dpad-btn dpad-left" data-dir="LEFT">&#x25C4;</button>
+            <button class="dpad-btn dpad-right" data-dir="RIGHT">&#x25BA;</button>
+            <button class="dpad-btn dpad-down" data-dir="DOWN">&#x25BC;</button>
+          </div>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -304,6 +314,74 @@ function renderSettingsScreen() {
     showScreen('menu');
   };
 
+  // --- Control test area ---
+  const testArea = document.getElementById('control-test-area');
+  const testArrow = document.getElementById('control-test-arrow');
+  const testHint = document.getElementById('control-test-hint');
+  const testDpad = document.getElementById('control-test-dpad');
+  const arrowChars = { UP: '\u25B2', DOWN: '\u25BC', LEFT: '\u25C4', RIGHT: '\u25BA' };
+  const arrowRotations = { UP: '-90deg', DOWN: '90deg', LEFT: '180deg', RIGHT: '0deg' };
+  let testResetTimer = null;
+
+  function showTestDirection(dir) {
+    testArrow.textContent = arrowChars[dir] || '\u25BA';
+    testArrow.style.transform = `translate(-50%, -50%) rotate(${arrowRotations[dir] || '0deg'})`;
+    testArrow.classList.add('flash');
+    clearTimeout(testResetTimer);
+    testResetTimer = setTimeout(() => testArrow.classList.remove('flash'), 400);
+  }
+
+  function updateTestAreaForMode(mode) {
+    const hints = { swipe: 'Swipe in any direction', tap: 'Tap left/right side', dpad: 'Tap the D-pad buttons' };
+    testHint.textContent = hints[mode] || '';
+    testDpad.style.display = mode === 'dpad' ? 'grid' : 'none';
+  }
+
+  // Swipe/tap handling on the test area
+  let testTouchStartX = 0, testTouchStartY = 0;
+  testArea.addEventListener('touchstart', (e) => {
+    if (settings.controlScheme === 'dpad') return;
+    testTouchStartX = e.touches[0].clientX;
+    testTouchStartY = e.touches[0].clientY;
+    e.stopPropagation();
+  }, { passive: true });
+  testArea.addEventListener('touchend', (e) => {
+    if (settings.controlScheme === 'dpad') return;
+    const t = e.changedTouches[0];
+    const dx = t.clientX - testTouchStartX;
+    const dy = t.clientY - testTouchStartY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+    if (settings.controlScheme === 'swipe' && dist >= 15) {
+      showTestDirection(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'RIGHT' : 'LEFT') : (dy > 0 ? 'DOWN' : 'UP'));
+    } else if (settings.controlScheme === 'tap' && dist < 15) {
+      const rect = testArea.getBoundingClientRect();
+      const side = t.clientX < rect.left + rect.width / 2 ? 'LEFT' : 'RIGHT';
+      showTestDirection(side);
+    }
+    e.stopPropagation();
+  }, { passive: true });
+  // Mouse fallback for desktop testing
+  testArea.addEventListener('click', (e) => {
+    if (settings.controlScheme === 'dpad') return;
+    if (settings.controlScheme === 'tap') {
+      const rect = testArea.getBoundingClientRect();
+      showTestDirection(e.clientX < rect.left + rect.width / 2 ? 'LEFT' : 'RIGHT');
+    }
+  });
+
+  // D-pad buttons in test area
+  testDpad.querySelectorAll('.dpad-btn').forEach(btn => {
+    btn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      showTestDirection(btn.dataset.dir);
+    }, { passive: false });
+    btn.addEventListener('mousedown', (e) => {
+      e.stopPropagation();
+      showTestDirection(btn.dataset.dir);
+    });
+  });
+
   // Control scheme buttons
   document.querySelectorAll('#control-scheme-group button').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -313,6 +391,7 @@ function renderSettingsScreen() {
       input.setMode(mode);
       document.querySelectorAll('#control-scheme-group button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
+      updateTestAreaForMode(mode);
       saveProgress();
     });
   });
