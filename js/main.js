@@ -60,10 +60,69 @@ let stats = {
 // Session play time tracker (wall-clock based)
 let sessionPlayStart = null;
 
+// Lives regeneration timer (5 min per life)
+const LIFE_REGEN_MS = 5 * 60 * 1000; // 5 minutes
+let lifeRegenTimestamp = null; // when lives first dropped below max (null = full)
+let lifeTimerInterval = null;
+
+function regenerateLives() {
+  if (lives >= LIVES_MAX || !lifeRegenTimestamp) return;
+  const elapsed = Date.now() - lifeRegenTimestamp;
+  const gained = Math.floor(elapsed / LIFE_REGEN_MS);
+  if (gained > 0) {
+    lives = Math.min(LIVES_MAX, lives + gained);
+    lifeRegenTimestamp = lives >= LIVES_MAX ? null : lifeRegenTimestamp + gained * LIFE_REGEN_MS;
+    saveProgress();
+  }
+}
+
+function startLifeTimer() {
+  if (lifeTimerInterval) clearInterval(lifeTimerInterval);
+  lifeTimerInterval = setInterval(() => {
+    if (lives < LIVES_MAX) {
+      regenerateLives();
+      updateLifeTimerDisplay();
+    }
+  }, 1000);
+}
+
+function getNextLifeCountdown() {
+  if (lives >= LIVES_MAX || !lifeRegenTimestamp) return null;
+  const elapsed = Date.now() - lifeRegenTimestamp;
+  const remaining = LIFE_REGEN_MS - (elapsed % LIFE_REGEN_MS);
+  const mins = Math.floor(remaining / 60000);
+  const secs = Math.floor((remaining % 60000) / 1000);
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+}
+
+function updateLifeTimerDisplay() {
+  const timerEl = document.getElementById('life-timer');
+  if (!timerEl) return;
+  if (lives >= LIVES_MAX) {
+    timerEl.textContent = 'FULL';
+    timerEl.style.color = COLORS.GREEN;
+  } else {
+    const cd = getNextLifeCountdown();
+    timerEl.textContent = cd ? `Next: ${cd}` : '';
+    timerEl.style.color = COLORS.GREY;
+  }
+  // Also update heart display if visible
+  const heartsEl = document.getElementById('menu-hearts');
+  if (heartsEl) heartsEl.innerHTML = renderHearts(lives);
+}
+
+function onLifeLost() {
+  lives--;
+  if (lives < LIVES_MAX && !lifeRegenTimestamp) {
+    lifeRegenTimestamp = Date.now();
+  }
+  saveProgress();
+}
+
 // Persistence
 function saveProgress() {
   try {
-    localStorage.setItem('snake_quest_save', JSON.stringify({ levelStars, currentLevelId, lives, settings, stats }));
+    localStorage.setItem('snake_quest_save', JSON.stringify({ levelStars, currentLevelId, lives, lifeRegenTimestamp, settings, stats }));
   } catch (e) { /* ignore */ }
 }
 
@@ -74,11 +133,14 @@ function loadProgress() {
       const data = JSON.parse(raw);
       if (data.levelStars) levelStars = data.levelStars;
       if (data.currentLevelId) currentLevelId = data.currentLevelId;
-      if (data.lives) lives = data.lives;
+      if (data.lives != null) lives = data.lives;
+      if (data.lifeRegenTimestamp) lifeRegenTimestamp = data.lifeRegenTimestamp;
       if (data.settings) settings = { ...settings, ...data.settings };
       if (data.stats) stats = { ...stats, ...data.stats };
     }
   } catch (e) { /* ignore */ }
+  // Regenerate any lives earned while app was closed
+  regenerateLives();
   // Apply loaded settings
   // Migrate old settings to new modes
   if (settings.controlScheme === 'swipe' || settings.controlScheme === 'dpad+swipe') {
@@ -209,12 +271,17 @@ function renderMenuScreen() {
   engine.stop();
   renderer.clear();
 
+  // Regenerate lives before showing menu
+  regenerateLives();
+  startLifeTimer();
+
   uiLayer.innerHTML = `
     <div class="screen active" style="justify-content: center; gap: 24px;">
       <h1 class="font-pixel" style="color: ${COLORS.GREEN}; font-size: 28px; text-align: center;">SNAKE</h1>
       <p class="font-ui" style="color: ${COLORS.WHITE}; opacity: 0.6; font-size: 14px;">Level Quest</p>
-      <div style="display: flex; gap: 8px; align-items: center; justify-content: center;">
-        ${renderHearts(lives)}
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 4px;">
+        <div id="menu-hearts" style="display: flex; gap: 8px;">${renderHearts(lives)}</div>
+        <span id="life-timer" class="font-ui" style="font-size: 11px; color: ${lives >= LIVES_MAX ? COLORS.GREEN : COLORS.GREY};">${lives >= LIVES_MAX ? 'FULL' : 'Next: ' + (getNextLifeCountdown() || '...')}</span>
       </div>
       <button class="btn btn-primary font-ui" id="btn-continue">CONTINUE &mdash; Level ${currentLevelId}</button>
       <button class="btn btn-secondary font-ui" id="btn-play" style="font-size: 12px;">CHOOSE LEVEL</button>
@@ -526,6 +593,7 @@ function renderSettingsScreen() {
       audio.buttonTap();
       localStorage.removeItem('snake_quest_save');
       lives = LIVES_START;
+      lifeRegenTimestamp = null;
       currentLevelId = 1;
       levelStars = {};
       settings = { controlScheme: 'tap', soundEnabled: true, soundTheme: 'classic', snakeSkin: 'classic', vibration: true, gridLines: true, screenShake: true };
@@ -967,7 +1035,7 @@ function startGameplay(levelId) {
     // Update camera to follow snake head
     if (cameraActive && sess.snake && sess.snake.alive) {
       const head = getHead(sess.snake);
-      camera.follow(head.x, head.y, sess.snake.dir);
+      camera.follow(head.x, head.y);
     }
     renderer.clear();
     renderer.drawBoard(sess.grid, sess.warpEdges);
@@ -1082,7 +1150,7 @@ function startGameplay(levelId) {
   engine.onDeath = (cause) => {
     audio.death();
     audio.lifeLost();
-    lives--;
+    onLifeLost();
     input.setActive(false);
     input.hideDpad();
 
@@ -1245,18 +1313,11 @@ function renderGameOverScreen() {
 
   document.getElementById('btn-continue').onclick = () => {
     audio.buttonTap();
-    // Reset lives and continue from world start
-    lives = LIVES_START;
-    // Find first level of current world
-    const currentLevel = LEVELS.find(l => l.id === currentLevelId);
-    const worldStart = LEVELS.find(l => l.world === (currentLevel?.world ?? 1))?.id ?? 1;
-    currentLevelId = worldStart;
+    // Don't reset lives — timer handles regeneration
     showScreen('menu');
   };
   document.getElementById('btn-menu-go').onclick = () => {
     audio.buttonTap();
-    lives = LIVES_START;
-    currentLevelId = 1;
     showScreen('menu');
   };
 }
@@ -1291,15 +1352,12 @@ function renderCompleteScreen(data) {
     }
   }
 
-  // Record star progress
+  // Record star progress and advance currentLevelId
   levelStars[completedLevelId] = Math.max(levelStars[completedLevelId] || 0, stars);
+  const nextLevelId = completedLevelId + 1;
+  const nextExists = LEVELS.find(l => l.id === nextLevelId);
+  if (nextExists) currentLevelId = nextLevelId;
   saveProgress();
-
-  // Award extra life for 3 stars
-  if (stars === 3 && lives < LIVES_MAX) {
-    lives++;
-    audio.lifeGained();
-  }
 
   // If world complete, redirect to world-complete screen
   if (showWorldComplete) {
@@ -1315,9 +1373,6 @@ function renderCompleteScreen(data) {
   const starHtml = [1, 2, 3].map(i =>
     `<span class="font-pixel" style="font-size: 28px; color: ${i <= stars ? COLORS.GOLD : COLORS.GREY};">\u2605</span>`
   ).join('');
-
-  const nextLevelId = currentLevelId + 1;
-  const nextExists = LEVELS.find(l => l.id === nextLevelId);
 
   // Play star sounds with staggered timing
   for (let i = 0; i < stars; i++) {
@@ -1335,7 +1390,7 @@ function renderCompleteScreen(data) {
           <div style="color: ${COLORS.GREY};">Score</div><div style="color: ${COLORS.GREEN};">${data?.score ?? 0}</div>
           <div style="color: ${COLORS.GREY};">Segments lost</div><div style="color: ${(data?.segmentsLost ?? 0) === 0 ? COLORS.GREEN : COLORS.RED};">${data?.segmentsLost ?? 0}</div>
         </div>
-        ${stars === 3 ? `<p class="font-pixel" style="color: ${COLORS.GOLD}; font-size: 9px; margin-bottom: 12px;">+1 LIFE \u2764\uFE0F</p>` : ''}
+        ${stars === 3 ? `<p class="font-pixel" style="color: ${COLORS.GOLD}; font-size: 9px; margin-bottom: 12px;">PERFECT! \u2B50</p>` : ''}
         <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 16px;">
           ${nextExists ? `<button class="btn btn-primary font-ui" id="btn-next">NEXT LEVEL \u2192</button>` : ''}
           <button class="btn btn-secondary font-ui" id="btn-retry-complete">RETRY</button>
