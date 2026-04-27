@@ -54,6 +54,12 @@ export function createEngine() {
     const snake = session.snake;
     const grid = session.grid;
 
+    // Process input queue
+    if (session.inputQueue && session.inputQueue.length > 0) {
+      const nextDir = session.inputQueue.shift();
+      changeDirection(snake, nextDir);
+    }
+
     // Ice: if on ice, ignore queued direction change (keep sliding)
     if (session.onIce) {
       snake.nextDir = snake.dir;

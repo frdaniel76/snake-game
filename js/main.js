@@ -1,4 +1,4 @@
-import { COLORS, BOARD_W, BOARD_H, TILE, LIVES_START, LIVES_MAX, ELEM } from './config.js';
+import { COLORS, BOARD_W, BOARD_H, TILE, LIVES_START, LIVES_MAX, ELEM, OPPOSITE } from './config.js';
 import { loadLevel, LEVELS } from './levels.js';
 import { createEngine } from './engine.js';
 import { createRenderer } from './renderer.js';
@@ -38,6 +38,7 @@ let levelStars = {}; // { levelId: starCount } — missing means not completed
 // Settings
 let settings = {
   controlScheme: 'swipe',
+  swipeSensitivity: 'medium',
   soundEnabled: true,
   vibration: true,
   gridLines: true,
@@ -78,6 +79,7 @@ function loadProgress() {
   } catch (e) { /* ignore */ }
   // Apply loaded settings
   input.setMode(settings.controlScheme);
+  input.setSensitivity(settings.swipeSensitivity);
   audio.setEnabled(settings.soundEnabled);
 }
 
@@ -265,6 +267,12 @@ function renderSettingsScreen() {
           <button data-mode="tap" class="${settings.controlScheme === 'tap' ? 'active' : ''}">Tap</button>
           <button data-mode="dpad" class="${settings.controlScheme === 'dpad' ? 'active' : ''}">D-pad</button>
         </div>
+        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px; margin-top: 14px;">SWIPE SENSITIVITY</h3>
+        <div class="settings-toggle-group" id="swipe-sensitivity-group">
+          <button data-sens="low" class="${settings.swipeSensitivity === 'low' ? 'active' : ''}">Low</button>
+          <button data-sens="medium" class="${settings.swipeSensitivity === 'medium' ? 'active' : ''}">Medium</button>
+          <button data-sens="high" class="${settings.swipeSensitivity === 'high' ? 'active' : ''}">High</button>
+        </div>
       </div>
 
       <div class="settings-section">
@@ -304,6 +312,19 @@ function renderSettingsScreen() {
       settings.controlScheme = mode;
       input.setMode(mode);
       document.querySelectorAll('#control-scheme-group button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      saveProgress();
+    });
+  });
+
+  // Swipe sensitivity buttons
+  document.querySelectorAll('#swipe-sensitivity-group button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      audio.buttonTap();
+      const sens = btn.dataset.sens;
+      settings.swipeSensitivity = sens;
+      input.setSensitivity(sens);
+      document.querySelectorAll('#swipe-sensitivity-group button').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       saveProgress();
     });
@@ -351,7 +372,7 @@ function renderSettingsScreen() {
       lives = LIVES_START;
       currentLevelId = 1;
       levelStars = {};
-      settings = { controlScheme: 'swipe', soundEnabled: true, vibration: true, gridLines: true, screenShake: true };
+      settings = { controlScheme: 'swipe', swipeSensitivity: 'medium', soundEnabled: true, vibration: true, gridLines: true, screenShake: true };
       stats = { totalDeaths: 0, totalFoodEaten: 0, totalPlayTime: 0, longestSnake: 0, levelsCompleted: 0, perfectLevels: 0 };
       input.setMode('swipe');
       audio.setEnabled(true);
@@ -747,9 +768,25 @@ function startGameplay(levelId) {
     setTimeout(() => { if (goalEl) goalEl.style.opacity = '0'; }, 3000);
   }
 
-  // Wire input
+  // Initialize input queue on the session
+  session.inputQueue = [];
+
+  // Show D-pad if using dpad control scheme
+  if (settings.controlScheme === 'dpad') {
+    input.showDpad();
+  }
+
+  // Wire input — push to queue instead of direct changeDirection
   input.onDirection(dir => {
-    engine.changeDirection(dir);
+    if (!engine.session) return;
+    const queue = engine.session.inputQueue;
+    if (!queue) return;
+    // Validate against reverse: check the last queued direction (or current snake dir if queue empty)
+    const lastDir = queue.length > 0 ? queue[queue.length - 1] : engine.session.snake.dir;
+    if (dir === OPPOSITE[lastDir]) return; // reject 180-degree turn
+    if (queue.length < 2) {
+      queue.push(dir);
+    }
     input.updateSnakeDir(dir);
   });
 
@@ -870,6 +907,7 @@ function startGameplay(levelId) {
     audio.death();
     audio.lifeLost();
     lives--;
+    input.hideDpad();
 
     // Stats: track death and play time
     stats.totalDeaths++;
@@ -901,6 +939,7 @@ function startGameplay(levelId) {
 
   engine.onLevelComplete = (completionStats) => {
     audio.levelComplete();
+    input.hideDpad();
 
     // Stats: track play time
     recordSessionPlayTime();
@@ -931,6 +970,7 @@ function startGameplay(levelId) {
     pauseBtn.onclick = () => {
       audio.buttonTap();
       engine.pause();
+      input.hideDpad();
       recordSessionPlayTime();
       saveProgress();
       showPauseOverlay();
@@ -969,6 +1009,7 @@ function showPauseOverlay() {
     showCountdown(() => {
       sessionPlayStart = Date.now();
       engine.resume();
+      if (settings.controlScheme === 'dpad') input.showDpad();
     });
   };
   document.getElementById('btn-restart').onclick = () => {

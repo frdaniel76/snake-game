@@ -3,7 +3,8 @@ export function createInput(element) {
   let mode = 'swipe'; // 'swipe' | 'tap' | 'dpad'
   let currentSnakeDir = 'RIGHT'; // needed for tap-to-turn
 
-  const SWIPE_THRESHOLD = 20; // minimum px
+  let SWIPE_THRESHOLD = 20; // minimum px — configurable via setSensitivity
+  let dpadEl = null;
   let touchStartX = 0;
   let touchStartY = 0;
   let touchStartTime = 0;
@@ -75,6 +76,39 @@ export function createInput(element) {
     if (dirCallback) dirCallback(dir);
   }
 
+  // ---- D-pad overlay ----
+
+  function createDpad() {
+    if (dpadEl) dpadEl.remove();
+    dpadEl = document.createElement('div');
+    dpadEl.className = 'dpad-container';
+    dpadEl.innerHTML = `
+      <button class="dpad-btn dpad-up" data-dir="UP">▲</button>
+      <button class="dpad-btn dpad-left" data-dir="LEFT">◄</button>
+      <button class="dpad-btn dpad-right" data-dir="RIGHT">►</button>
+      <button class="dpad-btn dpad-down" data-dir="DOWN">▼</button>
+    `;
+    document.body.appendChild(dpadEl);
+
+    dpadEl.querySelectorAll('.dpad-btn').forEach(btn => {
+      btn.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        emit(btn.dataset.dir);
+      }, { passive: false });
+      // Also support mouse clicks for desktop testing
+      btn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        emit(btn.dataset.dir);
+      });
+    });
+  }
+
+  function removeDpad() {
+    if (dpadEl) { dpadEl.remove(); dpadEl = null; }
+  }
+
   // ---- Attach listeners ----
 
   element.addEventListener('touchstart', onTouchStart, { passive: false });
@@ -93,6 +127,26 @@ export function createInput(element) {
     /** Set input mode: 'swipe', 'tap', or 'dpad'. */
     setMode(m) {
       mode = m;
+      if (m !== 'dpad') removeDpad();
+    },
+
+    /** Show the D-pad overlay (call when entering gameplay in dpad mode). */
+    showDpad() {
+      if (mode === 'dpad') createDpad();
+    },
+
+    /** Hide the D-pad overlay (call when leaving gameplay). */
+    hideDpad() {
+      removeDpad();
+    },
+
+    /** Set swipe sensitivity: 'low' (40px), 'medium' (20px), 'high' (10px). */
+    setSensitivity(level) {
+      switch (level) {
+        case 'low':    SWIPE_THRESHOLD = 40; break;
+        case 'high':   SWIPE_THRESHOLD = 10; break;
+        default:       SWIPE_THRESHOLD = 20; break; // medium
+      }
     },
 
     /** Update the current snake direction (needed for tap-to-turn calculations). */

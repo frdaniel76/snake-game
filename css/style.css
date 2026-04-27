@@ -400,3 +400,48 @@ body {
   color: #555568;
   font-size: 11px;
 }
+
+/* ===== D-Pad Overlay ===== */
+.dpad-container {
+  position: fixed;
+  bottom: 24px;
+  right: 16px;
+  width: 140px;
+  height: 140px;
+  z-index: 30;
+  pointer-events: auto;
+  display: grid;
+  grid-template-areas:
+    ". up ."
+    "left . right"
+    ". down .";
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr 1fr;
+  gap: 2px;
+}
+
+.dpad-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.dpad-btn:active {
+  background: rgba(0, 255, 65, 0.3);
+  border-color: rgba(0, 255, 65, 0.5);
+  color: rgba(0, 255, 65, 0.8);
+}
+
+.dpad-up { grid-area: up; }
+.dpad-left { grid-area: left; }
+.dpad-right { grid-area: right; }
+.dpad-down { grid-area: down; }
