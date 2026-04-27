@@ -400,10 +400,10 @@ export const LEVELS = [
     speed: 1,
     starTargets: { time: 50, fastTime: 30 },
     warpEdges: false,
-    description: 'Cracked walls block the exit. Eat apples to grow, then break through!',
+    description: 'Brown cracked walls block the exit. Eat apples to grow, then smash through!',
     newMechanic: {
       name: 'Breakable Wall',
-      description: 'Break through cracked walls — but each one costs 1 segment!',
+      description: 'Brown cracked walls with yellow cracks — smash through them! Each one costs 1 segment, so eat first to grow.',
     },
   },
 

@@ -831,10 +831,22 @@ function renderLevelIntroScreen(data) {
 
   let mechanicHtml = '';
   if (levelDef.newMechanic) {
+    // Visual hint icons for new mechanics
+    const mechIcons = {
+      'Wall': '🧱', 'Food': '🍎', 'Golden Apple': '🌟', 'Exit Door': '🚪',
+      'Portal': '🌀', 'Key & Gate': '🔑', 'Breakable Wall': '💥',
+      'One-Way Gate': '➡️', 'Ice Patch': '🧊', 'Speed Pad': '⚡',
+      'Slow Pad': '🐌', 'Poison Apple': '☠️', 'Moving Obstacle': '👾',
+      'Timed Food': '⏱️', 'Warp Edges': '🔄', 'Heart': '❤️',
+    };
+    const icon = mechIcons[levelDef.newMechanic.name] || '✨';
     mechanicHtml = `
-      <div style="background: ${COLORS.GOLD}22; border: 1px solid ${COLORS.GOLD}; border-radius: 8px; padding: 10px 14px; margin-top: 12px;">
-        <span class="font-pixel" style="color: ${COLORS.GOLD}; font-size: 9px;">NEW: ${levelDef.newMechanic.name}</span>
-        <p class="font-ui" style="color: ${COLORS.WHITE}; font-size: 12px; margin-top: 4px;">${levelDef.newMechanic.description}</p>
+      <div style="background: ${COLORS.GOLD}22; border: 2px solid ${COLORS.GOLD}; border-radius: 10px; padding: 14px 16px; margin-top: 16px;">
+        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+          <span style="font-size: 20px;">${icon}</span>
+          <span class="font-pixel" style="color: ${COLORS.GOLD}; font-size: 10px;">NEW: ${levelDef.newMechanic.name.toUpperCase()}</span>
+        </div>
+        <p class="font-ui" style="color: ${COLORS.WHITE}; font-size: 13px; line-height: 1.4;">${levelDef.newMechanic.description}</p>
       </div>
     `;
   }

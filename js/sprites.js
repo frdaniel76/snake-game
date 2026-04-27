@@ -418,11 +418,11 @@ const GATE_BLUE = [
   [gbd, _, gbd, _, gbd, _, gbd, _, gbd, _, gbd, _, gbd, _, gbd, _],
 ];
 
-// ---- BREAKABLE: Cracked stone wall ----
-const st = '#888899';
-const sd = '#555568';
-const sc = '#333344';
-const sw = '#aaaabb';
+// ---- BREAKABLE: Cracked stone wall — brown-tinted with bright yellow crack lines ----
+const st = '#887766';  // brown stone
+const sd = '#665544';  // brown mortar
+const sc = '#ffcc00';  // bright yellow cracks (highly visible)
+const sw = '#aa9977';  // highlight stone
 const BREAKABLE = [
   [sd, sd, sd, sd, sd, sd, sd, sd, sd, sd, sd, sd, sd, sd, sd, sd],
   [st, st, st, sd, st, st, st, st, st, st, sd, st, st, st, st, st],
