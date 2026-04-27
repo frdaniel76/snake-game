@@ -5,7 +5,11 @@
 ### What Makes a Good Level
 
 **Safe Spawn Rule**
-The player must never die within the first 2-3 seconds of a level. The spawn area is always a clear open space with no obstacles, moving enemies, or tight corridors within at least 4 tiles in every direction from the snake's starting position. The snake always starts facing a safe direction (toward open space, never toward a wall).
+The player must never die within the first 2-3 seconds of a level. Requirements:
+- The head position must be an EMPTY tile (no food, walls, or other elements on the spawn point).
+- All body segments (extending behind the head opposite to facing direction, based on starting length) must also be on EMPTY tiles and within bounds.
+- At least 2 tiles ahead of the snake in its facing direction must be free of deadly elements (walls, gates, moving obstacles).
+- The snake always starts facing a safe direction (toward open space, never toward a wall).
 
 **Every Element Earns Its Place**
 If a mechanic appears on the board, it must be necessary to complete the level. No decorative walls, no portals that go nowhere, no keys without gates. If a player sees it, they should use it. This trains the player to pay attention to the board and builds trust that the design is intentional.
@@ -89,9 +93,10 @@ Outer boundary walls are always present (solid border around the board) except i
 ### Element 5: Portal Pair
 - **Visual**: Two matching coloured swirl tiles (e.g. both blue, both orange). Animated rotating pixel spiral. Each pair has a unique colour.
 - **Behaviour**: Always comes in pairs. Bidirectional — enter either one to exit the other.
-- **Snake Interaction**: Head enters portal A → head instantly appears at portal B, continuing in the same direction. The snake's body follows through the portal over subsequent ticks (it doesn't teleport the whole snake at once).
-- **Design Notes**: Creates spatial shortcuts and puzzles. The body-follows-through mechanic means long snakes create a "tether" between portals. Multiple portal pairs (different colours) can exist in one level.
-- **Introduced**: Level 7
+- **Snake Interaction**: Head enters portal A → head instantly appears at portal B, facing the portal's **fixed exit direction** (`exitDir`). The snake's body follows through the portal over subsequent ticks (it doesn't teleport the whole snake at once).
+- **Exit Direction**: Each portal defines an `exitDir` in its data (UP/DOWN/LEFT/RIGHT). This overrides the snake's current direction on exit. The exit direction is chosen per-level to guarantee the snake exits into open space, never into a wall. This is critical for portals placed next to walls (e.g. portal beside a dividing wall must exit away from it).
+- **Design Notes**: Creates spatial shortcuts and puzzles. The body-follows-through mechanic means long snakes create a "tether" between portals. Multiple portal pairs (different colours) can exist in one level. When designing levels, always verify that each portal's `exitDir` points into at least 3+ tiles of open space.
+- **Introduced**: Level 8
 
 ### Element 6: Key & Gate
 - **Visual**: Key = small pixel key shape in a specific colour (red, blue, yellow). Gate = solid coloured block matching the key, with a keyhole icon.
@@ -101,7 +106,7 @@ Outer boundary walls are always present (solid border around the board) except i
 - **Introduced**: Level 9
 
 ### Element 7: Breakable Wall
-- **Visual**: Stone block with visible cracks/fractures. Lighter colour than regular walls. Subtle "damaged" look.
+- **Visual**: Brown-tinted stone block (distinct from grey regular walls) with bright yellow crack lines. Immediately recognizable as different from solid walls.
 - **Behaviour**: Static until hit. Destroyed on snake head collision.
 - **Snake Interaction**: Head hits breakable wall → wall is destroyed (tile becomes empty), BUT snake loses 1 segment from its tail. If snake length is 1 (just the head), hitting a breakable wall = game over.
 - **Design Notes**: Risk/cost mechanic. Sometimes breaking through is the only path, sometimes it's a shortcut. Player must manage their length — eating more food gives "health" for breaking walls. Creates tension between growing (harder to navigate) and staying small (can't break walls).

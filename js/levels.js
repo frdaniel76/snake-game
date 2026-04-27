@@ -102,7 +102,7 @@ export const LEVELS = [
     worldName: 'Green Meadow',
     width: 15,
     height: 20,
-    snake: { x: 2, y: 18, dir: 'RIGHT', length: 3 },
+    snake: { x: 3, y: 18, dir: 'RIGHT', length: 3 },
     goal: { type: 'eat-all' },
     elements: [
       { type: ELEM.FOOD, x: 2, y: 14 },
@@ -137,7 +137,7 @@ export const LEVELS = [
     worldName: 'Green Meadow',
     width: 15,
     height: 20,
-    snake: { x: 7, y: 16, dir: 'UP', length: 3 },
+    snake: { x: 7, y: 15, dir: 'UP', length: 3 },
     goal: { type: 'eat-all-and-exit' },
     elements: [
       { type: ELEM.FOOD, x: 3, y: 12 },
@@ -173,7 +173,7 @@ export const LEVELS = [
     worldName: 'Green Meadow',
     width: 15,
     height: 20,
-    snake: { x: 1, y: 18, dir: 'RIGHT', length: 3 },
+    snake: { x: 3, y: 18, dir: 'RIGHT', length: 3 },
     goal: { type: 'eat-all' },
     elements: [
       { type: ELEM.FOOD, x: 2, y: 3 },
@@ -214,7 +214,7 @@ export const LEVELS = [
     worldName: 'Green Meadow',
     width: 15,
     height: 20,
-    snake: { x: 7, y: 17, dir: 'UP', length: 3 },
+    snake: { x: 7, y: 16, dir: 'UP', length: 3 },
     goal: { type: 'eat-all-and-exit' },
     elements: [
       { type: ELEM.FOOD, x: 3, y: 4 },
@@ -225,7 +225,7 @@ export const LEVELS = [
       { type: ELEM.FOOD, x: 7, y: 10 },
       { type: ELEM.FOOD, x: 4, y: 14 },
       { type: ELEM.FOOD, x: 10, y: 14 },
-      { type: ELEM.FOOD, x: 7, y: 16 },
+      { type: ELEM.FOOD, x: 7, y: 17 },
       { type: ELEM.FOOD, x: 7, y: 2 },
       { type: ELEM.EXIT, x: 1, y: 1 },
     ],
@@ -471,7 +471,7 @@ export const LEVELS = [
     worldName: 'Ancient Temple',
     width: 15,
     height: 20,
-    snake: { x: 7, y: 16, dir: 'RIGHT', length: 3 },
+    snake: { x: 3, y: 18, dir: 'RIGHT', length: 3 },
     goal: { type: 'eat-all' },
     elements: [
       { type: ELEM.FOOD, x: 12, y: 14 },
@@ -584,7 +584,7 @@ export const LEVELS = [
     worldName: 'Ice Cavern',
     width: 15,
     height: 20,
-    snake: { x: 2, y: 16, dir: 'RIGHT', length: 3 },
+    snake: { x: 3, y: 16, dir: 'RIGHT', length: 3 },
     goal: { type: 'eat-all' },
     elements: [
       // Apples on far side of ice
@@ -621,7 +621,7 @@ export const LEVELS = [
     worldName: 'Ice Cavern',
     width: 15,
     height: 20,
-    snake: { x: 2, y: 17, dir: 'RIGHT', length: 3 },
+    snake: { x: 3, y: 17, dir: 'RIGHT', length: 3 },
     goal: { type: 'eat-all' },
     elements: [
       { type: ELEM.FOOD, x: 7, y: 15 },
@@ -662,7 +662,7 @@ export const LEVELS = [
     worldName: 'Ice Cavern',
     width: 15,
     height: 20,
-    snake: { x: 7, y: 17, dir: 'UP', length: 3 },
+    snake: { x: 7, y: 16, dir: 'UP', length: 3 },
     goal: { type: 'eat-all-and-exit' },
     elements: [
       { type: ELEM.FOOD, x: 2, y: 14 },
@@ -704,7 +704,7 @@ export const LEVELS = [
     worldName: 'Ice Cavern',
     width: 15,
     height: 20,
-    snake: { x: 2, y: 17, dir: 'RIGHT', length: 3 },
+    snake: { x: 3, y: 17, dir: 'RIGHT', length: 3 },
     goal: { type: 'eat-all' },
     elements: [
       { type: ELEM.FOOD, x: 4, y: 15 },
@@ -749,7 +749,7 @@ export const LEVELS = [
     worldName: 'Ice Cavern',
     width: 20,
     height: 20,
-    snake: { x: 10, y: 17, dir: 'UP', length: 3 },
+    snake: { x: 10, y: 16, dir: 'UP', length: 3 },
     goal: { type: 'eat-all' },
     elements: [
       // Apples in each zone
@@ -935,7 +935,7 @@ export const LEVELS = [
     worldName: 'Shadow Forest',
     width: 15,
     height: 20,
-    snake: { x: 2, y: 17, dir: 'RIGHT', length: 3 },
+    snake: { x: 3, y: 17, dir: 'RIGHT', length: 3 },
     goal: { type: 'eat-all-and-exit' },
     elements: [
       { type: ELEM.FOOD, x: 2, y: 10 },
@@ -991,7 +991,7 @@ export const LEVELS = [
     worldName: 'Shadow Forest',
     width: 20,
     height: 20,
-    snake: { x: 2, y: 17, dir: 'RIGHT', length: 3 },
+    snake: { x: 3, y: 17, dir: 'RIGHT', length: 3 },
     goal: { type: 'eat-all' },
     elements: [
       { type: ELEM.FOOD, x: 5, y: 15 },
@@ -1084,7 +1084,7 @@ export const LEVELS = [
     worldName: 'Shadow Forest',
     width: 20,
     height: 25,
-    snake: { x: 3, y: 22, dir: 'RIGHT', length: 3 },
+    snake: { x: 3, y: 20, dir: 'RIGHT', length: 3 },
     goal: { type: 'eat-all' },
     elements: [
       // Regular apples
@@ -1555,7 +1555,7 @@ export const LEVELS = [
       { type: ELEM.FOOD, x: 12, y: 3 },
       { type: ELEM.FOOD, x: 2, y: 16 },
       { type: ELEM.FOOD, x: 12, y: 16 },
-      { type: ELEM.FOOD, x: 7, y: 10 },
+      { type: ELEM.FOOD, x: 7, y: 12 },
       { type: ELEM.GOLDEN_FOOD, x: 7, y: 3 },
       // Slow pads for comfort
       { type: ELEM.SLOW_PAD, x: 5, y: 7 },
