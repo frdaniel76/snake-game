@@ -342,8 +342,8 @@ export const LEVELS = [
       { type: ELEM.FOOD, x: 7, y: 17 },
       { type: ELEM.FOOD, x: 7, y: 15 },
       // Blue portal pair — connects room 1 to room 2
-      { type: ELEM.PORTAL, x: 4, y: 9, data: { color: 'blue', pairId: 'p1', exitDir: 'LEFT' } },
-      { type: ELEM.PORTAL, x: 10, y: 9, data: { color: 'blue', pairId: 'p1', exitDir: 'RIGHT' } },
+      { type: ELEM.PORTAL, x: 4, y: 9, data: { color: 'blue', pairId: 'p1', exitDir: 'DOWN' } },
+      { type: ELEM.PORTAL, x: 10, y: 9, data: { color: 'blue', pairId: 'p1', exitDir: 'DOWN' } },
       // Orange portal pair — connects room 2 to room 3
       { type: ELEM.PORTAL, x: 12, y: 17, data: { color: 'orange', pairId: 'p2', exitDir: 'UP' } },
       { type: ELEM.PORTAL, x: 7, y: 12, data: { color: 'orange', pairId: 'p2', exitDir: 'DOWN' } },
@@ -532,19 +532,19 @@ export const LEVELS = [
       { type: ELEM.GOLDEN_FOOD, x: 16, y: 2 },
       // Red key behind one-way gate
       { type: ELEM.KEY, x: 3, y: 4, data: { color: 'red' } },
-      // Red gate blocking exit
-      { type: ELEM.GATE, x: 10, y: 2, data: { color: 'red' } },
+      // Red gate blocking path to exit — placed with runway space
+      { type: ELEM.GATE, x: 10, y: 4, data: { color: 'red' } },
       // One-way gates
       { type: ELEM.ONE_WAY, x: 5, y: 7, data: { dir: 'UP' } },
       { type: ELEM.ONE_WAY, x: 14, y: 14, data: { dir: 'DOWN' } },
       // Breakable wall shortcuts
       { type: ELEM.BREAKABLE, x: 10, y: 10 },
       { type: ELEM.BREAKABLE, x: 10, y: 18 },
-      // Portal pair
-      { type: ELEM.PORTAL, x: 3, y: 14, data: { color: 'blue', pairId: 'p1', exitDir: 'DOWN' } },
-      { type: ELEM.PORTAL, x: 16, y: 6, data: { color: 'blue', pairId: 'p1', exitDir: 'UP' } },
-      // Exit
-      { type: ELEM.EXIT, x: 10, y: 1 },
+      // Portal pair — exits point away from walls with 4+ tile runway
+      { type: ELEM.PORTAL, x: 3, y: 17, data: { color: 'blue', pairId: 'p1', exitDir: 'UP' } },
+      { type: ELEM.PORTAL, x: 16, y: 7, data: { color: 'blue', pairId: 'p1', exitDir: 'DOWN' } },
+      // Exit — with space around it
+      { type: ELEM.EXIT, x: 10, y: 2 },
     ],
     walls: [
       // Horizontal divider y=12, passage at x=10 (breakable above)
@@ -552,7 +552,8 @@ export const LEVELS = [
       ...range(11, 18).map(x => ({ x, y: 12 })),
       // Horizontal divider y=6, passages at x=5 (one-way) and x=14 (open)
       ...range(1, 4).map(x => ({ x, y: 6 })),
-      ...range(6, 13).map(x => ({ x, y: 6 })),
+      ...range(6, 9).map(x => ({ x, y: 6 })),
+      ...range(11, 13).map(x => ({ x, y: 6 })),
       ...range(15, 18).map(x => ({ x, y: 6 })),
       // Vertical wall x=8, y 13..23 (gap at y=18 for passage)
       ...range(13, 17).map(y => ({ x: 8, y })),
@@ -1515,7 +1516,7 @@ export const LEVELS = [
       { type: ELEM.POISON, x: 13, y: 8 },
       // Portal — connects end back to revisit area
       { type: ELEM.PORTAL, x: 22, y: 4, data: { color: 'blue', pairId: 'p1', exitDir: 'LEFT' } },
-      { type: ELEM.PORTAL, x: 3, y: 20, data: { color: 'blue', pairId: 'p1', exitDir: 'RIGHT' } },
+      { type: ELEM.PORTAL, x: 3, y: 19, data: { color: 'blue', pairId: 'p1', exitDir: 'DOWN' } },
       // Exit
       { type: ELEM.EXIT, x: 12, y: 1 },
     ],

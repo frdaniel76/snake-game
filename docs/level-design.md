@@ -95,13 +95,15 @@ Outer boundary walls are always present (solid border around the board) except i
 - **Behaviour**: Always comes in pairs. Bidirectional — enter either one to exit the other.
 - **Snake Interaction**: Head enters portal A → head instantly appears at portal B, facing the portal's **fixed exit direction** (`exitDir`). The snake's body follows through the portal over subsequent ticks (it doesn't teleport the whole snake at once).
 - **Exit Direction**: Each portal defines an `exitDir` in its data (UP/DOWN/LEFT/RIGHT). This overrides the snake's current direction on exit. The exit direction is chosen per-level to guarantee the snake exits into open space, never into a wall. This is critical for portals placed next to walls (e.g. portal beside a dividing wall must exit away from it).
-- **Design Notes**: Creates spatial shortcuts and puzzles. The body-follows-through mechanic means long snakes create a "tether" between portals. Multiple portal pairs (different colours) can exist in one level. When designing levels, always verify that each portal's `exitDir` points into at least 3+ tiles of open space.
+- **Portal Runway Rule**: Each portal's `exitDir` must have at least **4 tiles of safe open space** before any wall, gate, or deadly obstacle. This gives the player ~1 second of reaction time after teleporting. Always verify with the portal runway audit.
+- **Design Notes**: Creates spatial shortcuts and puzzles. The body-follows-through mechanic means long snakes create a "tether" between portals. Multiple portal pairs (different colours) can exist in one level.
 - **Introduced**: Level 8
 
 ### Element 6: Key & Gate
 - **Visual**: Key = small pixel key shape in a specific colour (red, blue, yellow). Gate = solid coloured block matching the key, with a keyhole icon.
 - **Behaviour**: Key is a collectible item (like food but doesn't grow the snake). Collecting a key instantly dissolves all gates of that colour. Multiple key/gate colours can coexist.
 - **Snake Interaction**: Head touches key → key collected (no growth), matching gates disappear. Head hits gate → blocked (treated as wall) until matching key is collected.
+- **Gate Placement Rule**: Gates must never be placed directly adjacent to boundary walls or in dead-end corridors where the snake has no room to maneuver after the gate clears. There must be at least 2 tiles of navigable space beyond a gate's position so the player can pass through safely.
 - **Design Notes**: Creates sequencing puzzles — must collect keys in the right order. A red key might be behind a blue gate, requiring blue key first. Max 3 colours per level to keep it readable.
 - **Introduced**: Level 9
 
