@@ -426,6 +426,9 @@ export function createRenderer(canvas) {
       camera = cam;
     },
 
+    /** Rebuild the sprite cache (call after skin change). */
+    rebuildSpriteCache() { rebuildCache(scale); },
+
     // Utility getters
     get scale() { return scale; },
     get ctx() { return ctx; },

@@ -683,6 +683,56 @@ const HEART = [
   [_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _],
 ];
 
+// ---- Snake skin system ----
+// Skins define primary (bright) and secondary (dim) colors for the snake.
+// All snake sprites are recolored by swapping G→primary, g→secondary.
+
+export const SKINS = {
+  classic: { name: 'Classic',  primary: '#00ff41', secondary: '#00cc33' },
+  blue:    { name: 'Neon Blue', primary: '#00ccff', secondary: '#0099cc' },
+  fire:    { name: 'Fire',     primary: '#ff6622', secondary: '#cc4400' },
+  purple:  { name: 'Purple',   primary: '#cc44ff', secondary: '#9933cc' },
+};
+
+// Recolor a sprite: replace old color with new
+function recolorSprite(sprite, colorMap) {
+  return sprite.map(row => row.map(pixel => colorMap[pixel] || pixel));
+}
+
+// Generate snake sprites for a given skin
+function makeSnakeSprites(skin) {
+  const colorMap = {
+    '#00ff41': skin.primary,
+    '#00cc33': skin.secondary,
+  };
+  return {
+    SNAKE_HEAD_UP: recolorSprite(SNAKE_HEAD_UP, colorMap),
+    SNAKE_HEAD_DOWN: recolorSprite(SNAKE_HEAD_DOWN, colorMap),
+    SNAKE_HEAD_LEFT: recolorSprite(SNAKE_HEAD_LEFT, colorMap),
+    SNAKE_HEAD_RIGHT: recolorSprite(SNAKE_HEAD_RIGHT, colorMap),
+    SNAKE_BODY: recolorSprite(SNAKE_BODY, colorMap),
+    SNAKE_BODY_ALT: recolorSprite(SNAKE_BODY_ALT, colorMap),
+    SNAKE_TAIL_UP: recolorSprite(SNAKE_TAIL_UP, colorMap),
+    SNAKE_TAIL_DOWN: recolorSprite(SNAKE_TAIL_DOWN, colorMap),
+    SNAKE_TAIL_LEFT: recolorSprite(SNAKE_TAIL_LEFT, colorMap),
+    SNAKE_TAIL_RIGHT: recolorSprite(SNAKE_TAIL_RIGHT, colorMap),
+  };
+}
+
+let currentSkin = 'classic';
+
+/** Apply a skin — updates SPRITES in place and returns true if changed. */
+export function setSkin(skinId) {
+  const skin = SKINS[skinId];
+  if (!skin) return false;
+  currentSkin = skinId;
+  const snakeSprites = makeSnakeSprites(skin);
+  Object.assign(SPRITES, snakeSprites);
+  return true;
+}
+
+export function getSkin() { return currentSkin; }
+
 export const SPRITES = {
   WALL,
   FOOD,

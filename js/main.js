@@ -7,6 +7,7 @@ import { createAudio } from './audio.js';
 import { createCamera } from './camera.js';
 import { gridWidth, gridHeight, findTiles } from './grid.js';
 import { getHead, getLength } from './snake.js';
+import { setSkin, getSkin, SKINS } from './sprites.js';
 
 // DOM elements
 const canvas = document.getElementById('game-canvas');
@@ -40,6 +41,8 @@ let settings = {
   controlScheme: 'swipe',
   swipeSensitivity: 'medium',
   soundEnabled: true,
+  soundTheme: 'classic',
+  snakeSkin: 'classic',
   vibration: true,
   gridLines: true,
   screenShake: true,
@@ -81,6 +84,9 @@ function loadProgress() {
   input.setMode(settings.controlScheme);
   input.setSensitivity(settings.swipeSensitivity);
   audio.setEnabled(settings.soundEnabled);
+  audio.setTheme(settings.soundTheme || 'classic');
+  setSkin(settings.snakeSkin || 'classic');
+  renderer.rebuildSpriteCache();
 }
 
 // Compute derived stats from levelStars
@@ -289,6 +295,23 @@ function renderSettingsScreen() {
       <div class="settings-section">
         <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px;">AUDIO</h3>
         ${toggleHtml('toggle-sound', 'Sound Effects', settings.soundEnabled)}
+        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px; margin-top: 14px;">SOUND THEME</h3>
+        <div class="settings-toggle-group settings-toggle-group-4" id="sound-theme-group">
+          <button data-theme="classic" class="${settings.soundTheme === 'classic' ? 'active' : ''}">Classic</button>
+          <button data-theme="synth" class="${settings.soundTheme === 'synth' ? 'active' : ''}">Synth</button>
+          <button data-theme="minimal" class="${settings.soundTheme === 'minimal' ? 'active' : ''}">Minimal</button>
+          <button data-theme="retro" class="${settings.soundTheme === 'retro' ? 'active' : ''}">Retro</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px;">SNAKE SKIN</h3>
+        <div class="settings-toggle-group settings-toggle-group-4" id="snake-skin-group">
+          ${Object.entries(SKINS).map(([id, skin]) => `<button data-skin="${id}" class="${settings.snakeSkin === id ? 'active' : ''}" style="${settings.snakeSkin === id ? '' : `color: ${skin.primary};`}">${skin.name}</button>`).join('')}
+        </div>
+        <div id="skin-preview" style="display: flex; gap: 4px; justify-content: center; margin-top: 10px;">
+          ${(() => { const s = SKINS[settings.snakeSkin] || SKINS.classic; return `<div style="width: 20px; height: 20px; border-radius: 6px; background: ${s.primary};"></div><div style="width: 20px; height: 20px; border-radius: 4px; background: ${s.secondary};"></div><div style="width: 20px; height: 20px; border-radius: 4px; background: ${s.primary};"></div><div style="width: 20px; height: 20px; border-radius: 4px; background: ${s.secondary};"></div><div style="width: 16px; height: 16px; border-radius: 3px; background: ${s.primary}; align-self: center;"></div>`; })()}
+        </div>
       </div>
 
       <div class="settings-section">
@@ -428,6 +451,51 @@ function renderSettingsScreen() {
   wireToggle('toggle-gridlines', 'gridLines');
   wireToggle('toggle-screenshake', 'screenShake');
 
+  // Sound theme buttons
+  document.querySelectorAll('#sound-theme-group button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const t = btn.dataset.theme;
+      settings.soundTheme = t;
+      audio.setTheme(t);
+      document.querySelectorAll('#sound-theme-group button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      saveProgress();
+      // Preview the selected theme
+      audio.preview(t);
+    });
+  });
+
+  // Snake skin buttons
+  document.querySelectorAll('#snake-skin-group button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const skinId = btn.dataset.skin;
+      settings.snakeSkin = skinId;
+      setSkin(skinId);
+      renderer.rebuildSpriteCache();
+      document.querySelectorAll('#snake-skin-group button').forEach(b => {
+        b.classList.remove('active');
+        const s = SKINS[b.dataset.skin];
+        b.style.color = s ? s.primary : '';
+      });
+      btn.classList.add('active');
+      btn.style.color = '';
+      // Update preview
+      const skin = SKINS[skinId] || SKINS.classic;
+      const preview = document.getElementById('skin-preview');
+      if (preview) {
+        preview.innerHTML = `
+          <div style="width: 20px; height: 20px; border-radius: 6px; background: ${skin.primary};"></div>
+          <div style="width: 20px; height: 20px; border-radius: 4px; background: ${skin.secondary};"></div>
+          <div style="width: 20px; height: 20px; border-radius: 4px; background: ${skin.primary};"></div>
+          <div style="width: 20px; height: 20px; border-radius: 4px; background: ${skin.secondary};"></div>
+          <div style="width: 16px; height: 16px; border-radius: 3px; background: ${skin.primary}; align-self: center;"></div>
+        `;
+      }
+      saveProgress();
+      audio.buttonTap();
+    });
+  });
+
   // Reset progress
   document.getElementById('btn-reset').onclick = () => {
     audio.buttonTap();
@@ -452,7 +520,7 @@ function renderSettingsScreen() {
       lives = LIVES_START;
       currentLevelId = 1;
       levelStars = {};
-      settings = { controlScheme: 'swipe', swipeSensitivity: 'medium', soundEnabled: true, vibration: true, gridLines: true, screenShake: true };
+      settings = { controlScheme: 'swipe', swipeSensitivity: 'medium', soundEnabled: true, soundTheme: 'classic', snakeSkin: 'classic', vibration: true, gridLines: true, screenShake: true };
       stats = { totalDeaths: 0, totalFoodEaten: 0, totalPlayTime: 0, longestSnake: 0, levelsCompleted: 0, perfectLevels: 0 };
       input.setMode('swipe');
       audio.setEnabled(true);
