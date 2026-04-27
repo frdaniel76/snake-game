@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Snake Game — Level Audit Tool</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #0f0e17; color: #e8e8e8; font-family: monospace; padding: 16px; }
+    h1 { color: #00ff41; margin-bottom: 16px; font-size: 18px; }
+    .summary { background: #1a1a2e; padding: 12px; border-radius: 8px; margin-bottom: 16px; }
+    .summary .pass { color: #00ff41; }
+    .summary .fail { color: #ff3333; }
+    .level-card { background: #1a1a2e; border-radius: 8px; padding: 12px; margin-bottom: 8px; border-left: 4px solid #555; }
+    .level-card.pass { border-left-color: #00ff41; }
+    .level-card.fail { border-left-color: #ff3333; }
+    .level-card h3 { font-size: 13px; margin-bottom: 4px; }
+    .level-card .issues { color: #ff3333; font-size: 12px; }
+    .level-card .stats { color: #888; font-size: 11px; }
+    .grid-preview { display: inline-block; margin-top: 8px; image-rendering: pixelated; border: 1px solid #333; }
+    details { cursor: pointer; }
+    details summary { font-size: 12px; color: #00d4ff; margin-top: 4px; }
+    .filter-bar { margin-bottom: 12px; display: flex; gap: 8px; flex-wrap: wrap; }
+    .filter-bar button { background: #1a1a2e; border: 1px solid #555; color: #e8e8e8; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-family: monospace; font-size: 12px; }
+    .filter-bar button.active { background: #00ff41; color: #0f0e17; border-color: #00ff41; }
+    #progress { color: #ffc800; margin-bottom: 12px; }
+  </style>
+</head>
+<body>
+  <h1>Level Audit Tool</h1>
+  <div id="progress">Loading...</div>
+  <div class="filter-bar" id="filters"></div>
+  <div class="summary" id="summary"></div>
+  <div id="results"></div>
+
+  <script type="module">
+    import { ELEM } from '../js/config.js';
+    import { LEVELS, loadLevel } from '../js/levels.js';
+    import { getTile, findTiles, gridWidth, gridHeight } from '../js/grid.js';
+    import { simulateAll } from '../js/simulator.js';
+
+    const progress = document.getElementById('progress');
+    const summary = document.getElementById('summary');
+    const results = document.getElementById('results');
+    const filters = document.getElementById('filters');
+
+    // Element type names for display
+    const ELEM_NAMES = {};
+    for (const [k, v] of Object.entries(ELEM)) ELEM_NAMES[v] = k;
+
+    // Colors for grid preview
+    const TILE_COLORS = {
+      [ELEM.EMPTY]: '#141425',
+      [ELEM.WALL]: '#555568',
+      [ELEM.FOOD]: '#ff3333',
+      [ELEM.GOLDEN_FOOD]: '#ffc800',
+      [ELEM.EXIT]: '#00ff41',
+      [ELEM.PORTAL]: '#00d4ff',
+      [ELEM.KEY]: '#ff8800',
+      [ELEM.GATE]: '#cc4444',
+      [ELEM.BREAKABLE]: '#887766',
+      [ELEM.ONE_WAY]: '#44aa44',
+      [ELEM.ICE]: '#7fdbda',
+      [ELEM.SPEED_PAD]: '#ff8800',
+      [ELEM.SLOW_PAD]: '#4488ff',
+      [ELEM.POISON]: '#9933ff',
+      [ELEM.MOVING_OBS]: '#ff3333',
+      [ELEM.TIMED_FOOD]: '#ffaa00',
+      [ELEM.HEART]: '#ff6688',
+    };
+
+    function renderGrid(grid, snakeStart, scale = 3) {
+      const w = gridWidth(grid), h = gridHeight(grid);
+      const canvas = document.createElement('canvas');
+      canvas.width = w * scale;
+      canvas.height = h * scale;
+      canvas.className = 'grid-preview';
+      const ctx = canvas.getContext('2d');
+
+      for (let y = 0; y < h; y++) {
+        for (let x = 0; x < w; x++) {
+          const tile = getTile(grid, x, y);
+          ctx.fillStyle = TILE_COLORS[tile?.type] || '#141425';
+          ctx.fillRect(x * scale, y * scale, scale, scale);
+        }
+      }
+
+      // Draw snake spawn
+      const sx = snakeStart.x, sy = snakeStart.y;
+      ctx.fillStyle = '#00ff41';
+      ctx.fillRect(sx * scale, sy * scale, scale, scale);
+      // Draw spawn direction arrow
+      const dv = { UP: [0, -1], DOWN: [0, 1], LEFT: [-1, 0], RIGHT: [1, 0] }[snakeStart.dir] || [1, 0];
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect((sx + dv[0]) * scale, (sy + dv[1]) * scale, scale, scale);
+
+      return canvas;
+    }
+
+    // ---- Audit checks ----
+
+    function auditSpawn(level, data) {
+      const issues = [];
+      const g = data.grid;
+      const { x: sx, y: sy, dir, length } = data.snakeStart;
+
+      // Head on empty
+      const headTile = getTile(g, sx, sy);
+      if (!headTile || headTile.type !== ELEM.EMPTY) {
+        issues.push(`HEAD at (${sx},${sy}) is ${ELEM_NAMES[headTile?.type] || 'OOB'}`);
+      }
+
+      // Body segments
+      const dv = { UP: [0, 1], DOWN: [0, -1], LEFT: [1, 0], RIGHT: [-1, 0] }[dir] || [-1, 0];
+      for (let i = 1; i < length; i++) {
+        const bx = sx + dv[0] * i, by = sy + dv[1] * i;
+        const bt = getTile(g, bx, by);
+        if (!bt || (bt.type !== ELEM.EMPTY && bt.type !== ELEM.FOOD)) {
+          issues.push(`BODY[${i}] at (${bx},${by}) is ${ELEM_NAMES[bt?.type] || 'OOB'}`);
+        }
+      }
+
+      // Runway ahead (2+ tiles)
+      const fv = { UP: [0, -1], DOWN: [0, 1], LEFT: [-1, 0], RIGHT: [1, 0] }[dir] || [1, 0];
+      for (let i = 1; i <= 2; i++) {
+        const fx = sx + fv[0] * i, fy = sy + fv[1] * i;
+        const ft = getTile(g, fx, fy);
+        if (!ft || ft.type === ELEM.WALL || ft.type === ELEM.GATE || ft.type === ELEM.MOVING_OBS) {
+          issues.push(`DEADLY ${i} tile(s) ahead at (${fx},${fy})`);
+        }
+      }
+
+      return issues;
+    }
+
+    function auditPortals(level, data) {
+      const issues = [];
+      const g = data.grid;
+      const portals = findTiles(g, ELEM.PORTAL);
+      const deadlyTypes = [ELEM.WALL, ELEM.GATE, ELEM.MOVING_OBS];
+
+      for (const portal of portals) {
+        if (!portal.data?.exitDir) {
+          issues.push(`Portal at (${portal.x},${portal.y}) has no exitDir`);
+          continue;
+        }
+        if (!portal.data?.pairId) {
+          issues.push(`Portal at (${portal.x},${portal.y}) has no pairId`);
+          continue;
+        }
+
+        // Check pair exists
+        const pair = portals.find(p => p.data?.pairId === portal.data.pairId && (p.x !== portal.x || p.y !== portal.y));
+        if (!pair) {
+          issues.push(`Portal at (${portal.x},${portal.y}) has no pair (pairId=${portal.data.pairId})`);
+        }
+
+        // Runway check (4+ tiles)
+        const dv = { UP: [0, -1], DOWN: [0, 1], LEFT: [-1, 0], RIGHT: [1, 0] }[portal.data.exitDir];
+        let runway = 0;
+        for (let i = 1; i <= 8; i++) {
+          const t = getTile(g, portal.x + dv[0] * i, portal.y + dv[1] * i);
+          if (!t || deadlyTypes.includes(t.type)) break;
+          runway++;
+        }
+        if (runway < 4) {
+          issues.push(`Portal at (${portal.x},${portal.y}) exit ${portal.data.exitDir} runway=${runway} (need 4+)`);
+        }
+      }
+
+      return issues;
+    }
+
+    function auditGates(level, data) {
+      const issues = [];
+      const g = data.grid;
+      const gates = findTiles(g, ELEM.GATE);
+      const keys = findTiles(g, ELEM.KEY);
+
+      for (const gate of gates) {
+        if (!gate.data?.color) {
+          issues.push(`Gate at (${gate.x},${gate.y}) has no color`);
+          continue;
+        }
+        // Check matching key exists
+        const hasKey = keys.some(k => k.data?.color === gate.data.color);
+        if (!hasKey) {
+          issues.push(`Gate at (${gate.x},${gate.y}) color=${gate.data.color} has no matching key`);
+        }
+
+        // Check gate not adjacent to boundary wall with no space beyond
+        const w = gridWidth(g), h = gridHeight(g);
+        const nearBoundary = gate.x <= 1 || gate.x >= w - 2 || gate.y <= 1 || gate.y >= h - 2;
+        if (nearBoundary) {
+          issues.push(`Gate at (${gate.x},${gate.y}) too close to boundary`);
+        }
+      }
+
+      return issues;
+    }
+
+    function auditElements(level, data) {
+      const issues = [];
+      const g = data.grid;
+
+      // Check food exists if goal requires it
+      if (level.goal.type === 'eat-all' || level.goal.type === 'eat-all-and-exit') {
+        const food = findTiles(g, ELEM.FOOD).length + findTiles(g, ELEM.GOLDEN_FOOD).length + findTiles(g, ELEM.TIMED_FOOD).length;
+        if (food === 0) issues.push('No food in eat-all level');
+      }
+
+      // Check exit exists if goal requires it
+      if (level.goal.type === 'reach-exit' || level.goal.type === 'eat-all-and-exit') {
+        const exits = findTiles(g, ELEM.EXIT).length;
+        if (exits === 0) issues.push('No exit in exit-required level');
+      }
+
+      return issues;
+    }
+
+    // ---- Run all audits ----
+
+    progress.textContent = 'Running simulator...';
+    const simResults = simulateAll();
+
+    progress.textContent = 'Auditing levels...';
+    const allResults = [];
+    let passCount = 0;
+    let failCount = 0;
+
+    for (const level of LEVELS) {
+      const audit = { id: level.id, name: level.name, world: level.world, worldName: level.worldName, issues: [], stats: {} };
+
+      try {
+        const data = loadLevel(level.id);
+        const g = data.grid;
+
+        // Run all checks
+        audit.issues.push(...auditSpawn(level, data).map(i => `[SPAWN] ${i}`));
+        audit.issues.push(...auditPortals(level, data).map(i => `[PORTAL] ${i}`));
+        audit.issues.push(...auditGates(level, data).map(i => `[GATE] ${i}`));
+        audit.issues.push(...auditElements(level, data).map(i => `[ELEM] ${i}`));
+
+        // Solvability
+        const sim = simResults.find(r => r.id === level.id);
+        if (sim && !sim.solvable) {
+          audit.issues.push(`[SOLVE] ${sim.reason}`);
+        }
+        audit.stats = {
+          size: `${level.width}x${level.height}`,
+          goal: level.goal.type,
+          food: findTiles(g, ELEM.FOOD).length + findTiles(g, ELEM.GOLDEN_FOOD).length,
+          portals: findTiles(g, ELEM.PORTAL).length,
+          keys: findTiles(g, ELEM.KEY).length,
+          walls: findTiles(g, ELEM.WALL).length,
+          steps: sim?.steps || '?',
+        };
+        audit.grid = data.grid;
+        audit.snakeStart = data.snakeStart;
+      } catch (e) {
+        audit.issues.push(`[ERROR] ${e.message}`);
+      }
+
+      if (audit.issues.length === 0) passCount++;
+      else failCount++;
+      allResults.push(audit);
+    }
+
+    // ---- Render ----
+
+    progress.textContent = '';
+
+    summary.innerHTML = `
+      <strong>Total levels:</strong> ${LEVELS.length} |
+      <span class="pass">PASS: ${passCount}</span> |
+      <span class="fail">FAIL: ${failCount}</span> |
+      <strong>Worlds:</strong> ${[...new Set(LEVELS.map(l => l.world))].length}
+    `;
+
+    // Filters
+    const filterStates = { all: true, fail: false };
+    const worlds = [...new Set(LEVELS.map(l => l.world))];
+
+    function renderResults(filter) {
+      results.innerHTML = '';
+      for (const audit of allResults) {
+        if (filter === 'fail' && audit.issues.length === 0) continue;
+        const card = document.createElement('div');
+        card.className = `level-card ${audit.issues.length === 0 ? 'pass' : 'fail'}`;
+        card.innerHTML = `
+          <h3>Level ${audit.id} — ${audit.name} (W${audit.world}: ${audit.worldName})</h3>
+          <div class="stats">${audit.stats.size} | ${audit.stats.goal} | Food:${audit.stats.food} | Portals:${audit.stats.portals} | Keys:${audit.stats.keys} | Steps:${audit.stats.steps}</div>
+          ${audit.issues.length > 0 ? `<div class="issues">${audit.issues.map(i => `<div>• ${i}</div>`).join('')}</div>` : '<div style="color:#00ff41;font-size:11px;">✓ All checks passed</div>'}
+        `;
+        if (audit.grid) {
+          const details = document.createElement('details');
+          details.innerHTML = '<summary>Show grid preview</summary>';
+          details.appendChild(renderGrid(audit.grid, audit.snakeStart, Math.min(4, Math.floor(300 / Math.max(gridWidth(audit.grid), gridHeight(audit.grid))))));
+          card.appendChild(details);
+        }
+        results.appendChild(card);
+      }
+    }
+
+    // Filter buttons
+    ['All', 'Failures Only'].forEach((label, i) => {
+      const btn = document.createElement('button');
+      btn.textContent = `${label} (${i === 0 ? LEVELS.length : failCount})`;
+      btn.className = i === 0 ? 'active' : '';
+      btn.onclick = () => {
+        filters.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderResults(i === 0 ? 'all' : 'fail');
+      };
+      filters.appendChild(btn);
+    });
+
+    // World filter buttons
+    for (const w of worlds) {
+      const worldLevels = allResults.filter(a => a.world === w);
+      const worldFails = worldLevels.filter(a => a.issues.length > 0).length;
+      const btn = document.createElement('button');
+      btn.textContent = `W${w} (${worldFails > 0 ? worldFails + ' fail' : 'ok'})`;
+      btn.onclick = () => {
+        filters.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        results.innerHTML = '';
+        for (const audit of worldLevels) {
+          const card = document.createElement('div');
+          card.className = `level-card ${audit.issues.length === 0 ? 'pass' : 'fail'}`;
+          card.innerHTML = `
+            <h3>Level ${audit.id} — ${audit.name}</h3>
+            <div class="stats">${audit.stats.size} | ${audit.stats.goal} | Food:${audit.stats.food} | Steps:${audit.stats.steps}</div>
+            ${audit.issues.length > 0 ? `<div class="issues">${audit.issues.map(i => `<div>• ${i}</div>`).join('')}</div>` : '<div style="color:#00ff41;font-size:11px;">✓ All checks passed</div>'}
+          `;
+          if (audit.grid) {
+            const details = document.createElement('details');
+            details.innerHTML = '<summary>Show grid preview</summary>';
+            details.appendChild(renderGrid(audit.grid, audit.snakeStart, Math.min(4, Math.floor(300 / Math.max(gridWidth(audit.grid), gridHeight(audit.grid))))));
+            card.appendChild(details);
+          }
+          results.appendChild(card);
+        }
+      };
+      filters.appendChild(btn);
+    }
+
+    renderResults('all');
+    console.log('Audit complete:', { total: LEVELS.length, pass: passCount, fail: failCount });
+  </script>
+</body>
+</html>

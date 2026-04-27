@@ -388,8 +388,6 @@ export function createEngine() {
         tick();
       } catch (err) {
         console.error('Engine tick error:', err);
-        // Surface to any global error handler (debug overlay)
-        if (typeof window !== 'undefined') window.dispatchEvent(new ErrorEvent('error', { message: 'TICK: ' + err.message, filename: 'engine.js', error: err }));
       }
       accumulator -= tickMs;
       if (!session?.snake?.alive || !running) break;
@@ -401,7 +399,6 @@ export function createEngine() {
       if (_onRender) _onRender(session, interp);
     } catch (err) {
       console.error('Engine render error:', err);
-      if (typeof window !== 'undefined') window.dispatchEvent(new ErrorEvent('error', { message: 'RENDER: ' + err.message, filename: 'engine.js', error: err }));
     }
 
     if (running) rafId = requestAnimationFrame(loop);

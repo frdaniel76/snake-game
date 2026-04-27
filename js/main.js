@@ -112,7 +112,7 @@ function updateLifeTimerDisplay() {
 }
 
 function onLifeLost() {
-  lives--;
+  lives = Math.max(0, lives - 1);
   if (lives < LIVES_MAX && !lifeRegenTimestamp) {
     lifeRegenTimestamp = Date.now();
   }
@@ -120,9 +120,11 @@ function onLifeLost() {
 }
 
 // Persistence
+const SAVE_VERSION = 2; // bump when level structure changes
+
 function saveProgress() {
   try {
-    localStorage.setItem('snake_quest_save', JSON.stringify({ levelStars, currentLevelId, lives, lifeRegenTimestamp, settings, stats }));
+    localStorage.setItem('snake_quest_save', JSON.stringify({ version: SAVE_VERSION, levelStars, currentLevelId, lives, lifeRegenTimestamp, settings, stats }));
   } catch (e) { /* ignore */ }
 }
 
@@ -215,7 +217,19 @@ let deathAnimation = null;
 let celebrationAnim = null;
 
 // --- Countdown Overlay ---
+let countdownIntervalId = null;
+
+function cancelCountdown() {
+  if (countdownIntervalId) {
+    clearInterval(countdownIntervalId);
+    countdownIntervalId = null;
+  }
+  const el = document.querySelector('.countdown-overlay');
+  if (el) el.remove();
+}
+
 function showCountdown(callback) {
+  cancelCountdown();
   const nums = ['3', '2', '1', 'GO!'];
   let i = 0;
   const el = document.createElement('div');
@@ -223,10 +237,11 @@ function showCountdown(callback) {
   el.innerHTML = `<span class="font-pixel countdown-num">${nums[0]}</span>`;
   uiLayer.appendChild(el);
 
-  const interval = setInterval(() => {
+  countdownIntervalId = setInterval(() => {
     i++;
     if (i >= nums.length) {
-      clearInterval(interval);
+      clearInterval(countdownIntervalId);
+      countdownIntervalId = null;
       el.remove();
       callback();
       return;
@@ -249,6 +264,8 @@ let currentScreen = null;
 
 function showScreen(name, data) {
   uiLayer.innerHTML = '';
+  cancelCountdown();
+  if (lifeTimerInterval && name !== 'menu') { clearInterval(lifeTimerInterval); lifeTimerInterval = null; }
   currentScreen = name;
 
   switch (name) {
@@ -393,7 +410,6 @@ function renderSettingsScreen() {
 
       <div class="settings-section">
         <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px;">DISPLAY</h3>
-        ${toggleHtml('toggle-vibration', 'Vibration', settings.vibration)}
         ${toggleHtml('toggle-gridlines', 'Grid Lines', settings.gridLines)}
         ${toggleHtml('toggle-screenshake', 'Screen Shake', settings.screenShake)}
       </div>
@@ -522,7 +538,6 @@ function renderSettingsScreen() {
   }
 
   wireToggle('toggle-sound', 'soundEnabled', (on) => audio.setEnabled(on));
-  wireToggle('toggle-vibration', 'vibration');
   wireToggle('toggle-gridlines', 'gridLines');
   wireToggle('toggle-screenshake', 'screenShake');
 
@@ -585,8 +600,6 @@ function renderSettingsScreen() {
     document.getElementById('btn-reset-cancel').onclick = () => {
       audio.buttonTap();
       container.innerHTML = `<button class="btn-reset-progress" id="btn-reset">RESET PROGRESS</button>`;
-      document.getElementById('btn-reset').onclick = arguments.callee; // re-wire (will re-render instead)
-      // Simpler: just re-render the screen
       renderSettingsScreen();
     };
     document.getElementById('btn-reset-confirm').onclick = () => {
@@ -937,6 +950,10 @@ function renderLevelIntroScreen(data) {
   document.getElementById('btn-start').onclick = () => {
     audio.resume();
     audio.buttonTap();
+    if (lives <= 0) {
+      showScreen('gameover');
+      return;
+    }
     showScreen('gameplay', { levelId });
   };
 }
@@ -1524,27 +1541,6 @@ function resizeCanvas(grid) {
     renderer.setCamera(null);
   }
 }
-
-// --- Debug error overlay (shows JS errors on screen for mobile debugging) ---
-function showErrorOverlay(msg) {
-  let overlay = document.getElementById('error-overlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'error-overlay';
-    overlay.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(255,0,0,0.9);color:#fff;font:12px monospace;padding:8px;max-height:30vh;overflow-y:auto;pointer-events:auto;';
-    overlay.addEventListener('click', () => overlay.remove());
-    document.body.appendChild(overlay);
-  }
-  const line = document.createElement('div');
-  line.textContent = msg;
-  overlay.appendChild(line);
-}
-window.addEventListener('error', (e) => {
-  showErrorOverlay(`ERR: ${e.message} @ ${e.filename?.split('/').pop()}:${e.lineno}`);
-});
-window.addEventListener('unhandledrejection', (e) => {
-  showErrorOverlay(`PROMISE: ${e.reason}`);
-});
 
 // --- Init ---
 function init() {
