@@ -216,8 +216,8 @@ function renderMenuScreen() {
       <div style="display: flex; gap: 8px; align-items: center; justify-content: center;">
         ${renderHearts(lives)}
       </div>
-      <button class="btn btn-primary font-ui" id="btn-play">PLAY</button>
-      <button class="btn btn-secondary font-ui" id="btn-continue" style="font-size: 12px;">CONTINUE &mdash; Level ${currentLevelId}</button>
+      <button class="btn btn-primary font-ui" id="btn-continue">CONTINUE &mdash; Level ${currentLevelId}</button>
+      <button class="btn btn-secondary font-ui" id="btn-play" style="font-size: 12px;">CHOOSE LEVEL</button>
       <button class="btn btn-secondary font-ui" id="btn-settings" style="font-size: 12px; margin-top: 4px;">SETTINGS</button>
       <button class="btn btn-secondary font-ui" id="btn-stats" style="font-size: 12px; margin-top: 4px;">STATS</button>
     </div>
@@ -1315,7 +1315,8 @@ function renderCompleteScreen(data) {
   uiLayer.innerHTML = `
     <div class="screen active" style="justify-content: center; background: rgba(15,14,23,0.85);">
       <div style="background: ${COLORS.NAVY}; border-radius: 16px; padding: 24px; max-width: 320px; width: 90%; text-align: center;">
-        <p class="font-pixel" style="color: ${COLORS.GREEN}; font-size: 16px; margin-bottom: 16px;">LEVEL COMPLETE!</p>
+        <p class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px; margin-bottom: 6px;">LEVEL ${completedLevelId}${completedLevel ? ' — ' + completedLevel.name : ''}</p>
+        <p class="font-pixel" style="color: ${COLORS.GREEN}; font-size: 16px; margin-bottom: 16px;">COMPLETE!</p>
         <div style="margin-bottom: 16px;">${starHtml}</div>
         <div class="font-ui" style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px; font-size: 13px;">
           <div style="color: ${COLORS.GREY};">Time</div><div style="color: ${COLORS.WHITE};">${Math.round(data?.time ?? 0)}s</div>

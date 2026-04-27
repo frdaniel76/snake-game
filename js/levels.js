@@ -267,8 +267,8 @@ export const LEVELS = [
       // Right side apples
       { type: ELEM.FOOD, x: 11, y: 5 },
       // Portal pair — blue
-      { type: ELEM.PORTAL, x: 6, y: 10, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 8, y: 10, data: { color: 'blue', pairId: 'p1' } },
+      { type: ELEM.PORTAL, x: 6, y: 10, data: { color: 'blue', pairId: 'p1', exitDir: 'LEFT' } },
+      { type: ELEM.PORTAL, x: 8, y: 10, data: { color: 'blue', pairId: 'p1', exitDir: 'RIGHT' } },
     ],
     walls: [
       // Vertical divider wall x=7, y 1..18
@@ -342,11 +342,11 @@ export const LEVELS = [
       { type: ELEM.FOOD, x: 7, y: 17 },
       { type: ELEM.FOOD, x: 7, y: 15 },
       // Blue portal pair — connects room 1 to room 2
-      { type: ELEM.PORTAL, x: 4, y: 9, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 10, y: 9, data: { color: 'blue', pairId: 'p1' } },
+      { type: ELEM.PORTAL, x: 4, y: 9, data: { color: 'blue', pairId: 'p1', exitDir: 'LEFT' } },
+      { type: ELEM.PORTAL, x: 10, y: 9, data: { color: 'blue', pairId: 'p1', exitDir: 'RIGHT' } },
       // Orange portal pair — connects room 2 to room 3
-      { type: ELEM.PORTAL, x: 12, y: 17, data: { color: 'orange', pairId: 'p2' } },
-      { type: ELEM.PORTAL, x: 7, y: 12, data: { color: 'orange', pairId: 'p2' } },
+      { type: ELEM.PORTAL, x: 12, y: 17, data: { color: 'orange', pairId: 'p2', exitDir: 'UP' } },
+      { type: ELEM.PORTAL, x: 7, y: 12, data: { color: 'orange', pairId: 'p2', exitDir: 'DOWN' } },
     ],
     walls: [
       // Vertical wall x=5, y 1..18 (divides left room from centre)
@@ -430,8 +430,8 @@ export const LEVELS = [
       { type: ELEM.FOOD, x: 10, y: 12 },
       { type: ELEM.FOOD, x: 16, y: 12 },
       // Portal pair — connects bottom-left to top-right
-      { type: ELEM.PORTAL, x: 3, y: 12, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 16, y: 3, data: { color: 'blue', pairId: 'p1' } },
+      { type: ELEM.PORTAL, x: 3, y: 12, data: { color: 'blue', pairId: 'p1', exitDir: 'RIGHT' } },
+      { type: ELEM.PORTAL, x: 16, y: 3, data: { color: 'blue', pairId: 'p1', exitDir: 'DOWN' } },
       // Blue key in top-left room
       { type: ELEM.KEY, x: 3, y: 3, data: { color: 'blue' } },
       // Blue gate blocking exit
@@ -541,8 +541,8 @@ export const LEVELS = [
       { type: ELEM.BREAKABLE, x: 10, y: 10 },
       { type: ELEM.BREAKABLE, x: 10, y: 18 },
       // Portal pair
-      { type: ELEM.PORTAL, x: 3, y: 14, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 16, y: 6, data: { color: 'blue', pairId: 'p1' } },
+      { type: ELEM.PORTAL, x: 3, y: 14, data: { color: 'blue', pairId: 'p1', exitDir: 'DOWN' } },
+      { type: ELEM.PORTAL, x: 16, y: 6, data: { color: 'blue', pairId: 'p1', exitDir: 'UP' } },
       // Exit
       { type: ELEM.EXIT, x: 10, y: 1 },
     ],
@@ -820,8 +820,8 @@ export const LEVELS = [
       // Blue gate blocking exit
       { type: ELEM.GATE, x: 10, y: 2, data: { color: 'blue' } },
       // Portal pair
-      { type: ELEM.PORTAL, x: 3, y: 14, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 16, y: 14, data: { color: 'blue', pairId: 'p1' } },
+      { type: ELEM.PORTAL, x: 3, y: 14, data: { color: 'blue', pairId: 'p1', exitDir: 'UP' } },
+      { type: ELEM.PORTAL, x: 16, y: 14, data: { color: 'blue', pairId: 'p1', exitDir: 'UP' } },
       // Breakable walls — alternative route
       { type: ELEM.BREAKABLE, x: 10, y: 10 },
       { type: ELEM.BREAKABLE, x: 10, y: 16 },
@@ -1230,8 +1230,8 @@ export const LEVELS = [
         speed: 5,
       }},
       // Portal pair — connects bottom to key room
-      { type: ELEM.PORTAL, x: 22, y: 24, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 22, y: 4, data: { color: 'blue', pairId: 'p1' } },
+      { type: ELEM.PORTAL, x: 22, y: 24, data: { color: 'blue', pairId: 'p1', exitDir: 'LEFT' } },
+      { type: ELEM.PORTAL, x: 22, y: 4, data: { color: 'blue', pairId: 'p1', exitDir: 'DOWN' } },
       // Red key in distant room
       { type: ELEM.KEY, x: 22, y: 8, data: { color: 'red' } },
       // Red gate blocking exit
@@ -1364,10 +1364,10 @@ export const LEVELS = [
       { type: ELEM.FOOD, x: 10, y: 10 },
       { type: ELEM.FOOD, x: 3, y: 10 },
       // Portal pairs
-      { type: ELEM.PORTAL, x: 5, y: 10, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 14, y: 10, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 10, y: 5, data: { color: 'orange', pairId: 'p2' } },
-      { type: ELEM.PORTAL, x: 10, y: 14, data: { color: 'orange', pairId: 'p2' } },
+      { type: ELEM.PORTAL, x: 5, y: 10, data: { color: 'blue', pairId: 'p1', exitDir: 'LEFT' } },
+      { type: ELEM.PORTAL, x: 14, y: 10, data: { color: 'blue', pairId: 'p1', exitDir: 'RIGHT' } },
+      { type: ELEM.PORTAL, x: 10, y: 5, data: { color: 'orange', pairId: 'p2', exitDir: 'UP' } },
+      { type: ELEM.PORTAL, x: 10, y: 14, data: { color: 'orange', pairId: 'p2', exitDir: 'DOWN' } },
       // Ice patches
       ...range(7, 13).flatMap(x =>
         range(7, 13).map(y => ({ type: ELEM.ICE, x, y }))
@@ -1514,8 +1514,8 @@ export const LEVELS = [
       { type: ELEM.POISON, x: 11, y: 8 },
       { type: ELEM.POISON, x: 13, y: 8 },
       // Portal — connects end back to revisit area
-      { type: ELEM.PORTAL, x: 22, y: 4, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 3, y: 20, data: { color: 'blue', pairId: 'p1' } },
+      { type: ELEM.PORTAL, x: 22, y: 4, data: { color: 'blue', pairId: 'p1', exitDir: 'LEFT' } },
+      { type: ELEM.PORTAL, x: 3, y: 20, data: { color: 'blue', pairId: 'p1', exitDir: 'RIGHT' } },
       // Exit
       { type: ELEM.EXIT, x: 12, y: 1 },
     ],
@@ -1600,8 +1600,8 @@ export const LEVELS = [
       { type: ELEM.KEY, x: 5, y: 27, data: { color: 'red' } },
       { type: ELEM.GATE, x: 14, y: 24, data: { color: 'red' } },
       // Portal pair (blue) — connects zone 2 to zone 4
-      { type: ELEM.PORTAL, x: 26, y: 30, data: { color: 'blue', pairId: 'p1' } },
-      { type: ELEM.PORTAL, x: 26, y: 14, data: { color: 'blue', pairId: 'p1' } },
+      { type: ELEM.PORTAL, x: 26, y: 30, data: { color: 'blue', pairId: 'p1', exitDir: 'LEFT' } },
+      { type: ELEM.PORTAL, x: 26, y: 14, data: { color: 'blue', pairId: 'p1', exitDir: 'LEFT' } },
       // Breakable walls
       { type: ELEM.BREAKABLE, x: 14, y: 30 },
       { type: ELEM.BREAKABLE, x: 10, y: 27 },
@@ -1671,8 +1671,8 @@ export const LEVELS = [
       { type: ELEM.KEY, x: 24, y: 6, data: { color: 'yellow' } },
       { type: ELEM.GATE, x: 14, y: 2, data: { color: 'yellow' } },
       // Portal pair (orange) — connects zone 4 to zone 5
-      { type: ELEM.PORTAL, x: 3, y: 14, data: { color: 'orange', pairId: 'p2' } },
-      { type: ELEM.PORTAL, x: 3, y: 6, data: { color: 'orange', pairId: 'p2' } },
+      { type: ELEM.PORTAL, x: 3, y: 14, data: { color: 'orange', pairId: 'p2', exitDir: 'RIGHT' } },
+      { type: ELEM.PORTAL, x: 3, y: 6, data: { color: 'orange', pairId: 'p2', exitDir: 'RIGHT' } },
       // Golden apple
       { type: ELEM.GOLDEN_FOOD, x: 14, y: 4 },
       // One-way gates

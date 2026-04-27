@@ -167,6 +167,16 @@ export function createEngine() {
             snake.segments[0].x = dest.x;
             snake.segments[0].y = dest.y;
             session.portalCooldown = true;
+            // Apply fixed exit direction if defined on the destination portal
+            const destTile = getTile(session.grid, dest.x, dest.y);
+            if (destTile?.data?.exitDir) {
+              const dirMap = { UP: { x: 0, y: -1 }, DOWN: { x: 0, y: 1 }, LEFT: { x: -1, y: 0 }, RIGHT: { x: 1, y: 0 } };
+              const d = dirMap[destTile.data.exitDir];
+              if (d) {
+                snake.dir = destTile.data.exitDir;
+                snake.nextDir = destTile.data.exitDir;
+              }
+            }
           }
         }
         break;
