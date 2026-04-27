@@ -851,6 +851,9 @@ function startGameplay(levelId) {
   // Initialize input queue on the session
   session.inputQueue = [];
 
+  // Activate touch input for gameplay
+  input.setActive(true);
+
   // Show D-pad if using dpad or combo control scheme
   if (settings.controlScheme === 'dpad' || settings.controlScheme === 'dpad+swipe') {
     input.showDpad();
@@ -987,6 +990,7 @@ function startGameplay(levelId) {
     audio.death();
     audio.lifeLost();
     lives--;
+    input.setActive(false);
     input.hideDpad();
 
     // Stats: track death and play time
@@ -1019,6 +1023,7 @@ function startGameplay(levelId) {
 
   engine.onLevelComplete = (completionStats) => {
     audio.levelComplete();
+    input.setActive(false);
     input.hideDpad();
 
     // Stats: track play time
@@ -1050,6 +1055,7 @@ function startGameplay(levelId) {
     pauseBtn.onclick = () => {
       audio.buttonTap();
       engine.pause();
+      input.setActive(false);
       input.hideDpad();
       recordSessionPlayTime();
       saveProgress();
@@ -1089,6 +1095,7 @@ function showPauseOverlay() {
     showCountdown(() => {
       sessionPlayStart = Date.now();
       engine.resume();
+      input.setActive(true);
       if (settings.controlScheme === 'dpad' || settings.controlScheme === 'dpad+swipe') input.showDpad();
     });
   };

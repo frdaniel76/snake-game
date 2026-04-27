@@ -2,6 +2,7 @@ export function createInput(element) {
   let dirCallback = null;
   let mode = 'swipe'; // 'swipe' | 'tap' | 'dpad' | 'dpad+swipe'
   let currentSnakeDir = 'RIGHT'; // needed for tap-to-turn
+  let active = false; // true only during gameplay — prevents touch interference on menus
 
   let SWIPE_THRESHOLD = 20; // minimum px — configurable via setSensitivity
   let dpadEl = null;
@@ -10,8 +11,21 @@ export function createInput(element) {
   let touchStartTime = 0;
 
   // ---- Swipe / tap handling ----
+  // Registered on document so touches are captured regardless of z-index stacking.
+  // UI buttons (menus, d-pad) have their own handlers with stopPropagation.
+
+  function isUIElement(target) {
+    // Skip touches that land on interactive UI elements (buttons, toggles, links)
+    if (!target || !target.closest) return false;
+    if (target.closest('.dpad-container')) return true;
+    if (target.closest('button')) return true;
+    if (target.closest('.toggle-switch')) return true;
+    if (target.closest('a')) return true;
+    return false;
+  }
 
   function onTouchStart(e) {
+    if (!active || isUIElement(e.target)) return;
     const t = e.touches[0];
     touchStartX = t.clientX;
     touchStartY = t.clientY;
@@ -20,11 +34,13 @@ export function createInput(element) {
   }
 
   function onTouchMove(e) {
+    if (!active || isUIElement(e.target)) return;
     // Prevent scrolling and zooming while playing
     e.preventDefault();
   }
 
   function onTouchEnd(e) {
+    if (!active || isUIElement(e.target)) return;
     const t = e.changedTouches[0];
     const dx = t.clientX - touchStartX;
     const dy = t.clientY - touchStartY;
@@ -110,10 +126,12 @@ export function createInput(element) {
   }
 
   // ---- Attach listeners ----
+  // Touch on document (not canvas) so touches are reliably captured on all mobile browsers.
+  // UI elements are filtered out in the handlers above.
 
-  element.addEventListener('touchstart', onTouchStart, { passive: false });
-  element.addEventListener('touchmove', onTouchMove, { passive: false });
-  element.addEventListener('touchend', onTouchEnd, { passive: false });
+  document.addEventListener('touchstart', onTouchStart, { passive: false });
+  document.addEventListener('touchmove', onTouchMove, { passive: false });
+  document.addEventListener('touchend', onTouchEnd, { passive: false });
   window.addEventListener('keydown', onKeyDown);
 
   // ---- Public API ----
@@ -122,6 +140,11 @@ export function createInput(element) {
     /** Register a callback for direction changes. cb receives 'UP'|'DOWN'|'LEFT'|'RIGHT'. */
     onDirection(cb) {
       dirCallback = cb;
+    },
+
+    /** Enable/disable touch input processing (use during gameplay only). */
+    setActive(isActive) {
+      active = isActive;
     },
 
     /** Set input mode: 'swipe', 'tap', 'dpad', or 'dpad+swipe'. */
@@ -156,9 +179,9 @@ export function createInput(element) {
 
     /** Remove all event listeners. */
     destroy() {
-      element.removeEventListener('touchstart', onTouchStart);
-      element.removeEventListener('touchmove', onTouchMove);
-      element.removeEventListener('touchend', onTouchEnd);
+      document.removeEventListener('touchstart', onTouchStart);
+      document.removeEventListener('touchmove', onTouchMove);
+      document.removeEventListener('touchend', onTouchEnd);
       window.removeEventListener('keydown', onKeyDown);
     },
   };
