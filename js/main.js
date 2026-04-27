@@ -1456,6 +1456,27 @@ function resizeCanvas(grid) {
   }
 }
 
+// --- Debug error overlay (shows JS errors on screen for mobile debugging) ---
+function showErrorOverlay(msg) {
+  let overlay = document.getElementById('error-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'error-overlay';
+    overlay.style.cssText = 'position:fixed;bottom:0;left:0;right:0;z-index:9999;background:rgba(255,0,0,0.9);color:#fff;font:12px monospace;padding:8px;max-height:30vh;overflow-y:auto;pointer-events:auto;';
+    overlay.addEventListener('click', () => overlay.remove());
+    document.body.appendChild(overlay);
+  }
+  const line = document.createElement('div');
+  line.textContent = msg;
+  overlay.appendChild(line);
+}
+window.addEventListener('error', (e) => {
+  showErrorOverlay(`ERR: ${e.message} @ ${e.filename?.split('/').pop()}:${e.lineno}`);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  showErrorOverlay(`PROMISE: ${e.reason}`);
+});
+
 // --- Init ---
 function init() {
   loadProgress();

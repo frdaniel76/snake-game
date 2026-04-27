@@ -385,7 +385,11 @@ export function createEngine() {
 
     // Interpolation factor for smooth rendering (0..1 between ticks)
     const interp = accumulator / tickMs;
-    if (_onRender) _onRender(session, interp);
+    try {
+      if (_onRender) _onRender(session, interp);
+    } catch (err) {
+      console.error('Engine render error:', err);
+    }
 
     if (running) rafId = requestAnimationFrame(loop);
   }
