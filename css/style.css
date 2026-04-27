@@ -199,6 +199,16 @@ body {
   margin-top: 10px;
 }
 
+/* ===== Level Select Pulse ===== */
+@keyframes level-pulse {
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 255, 255, 0.2); }
+  50% { box-shadow: 0 0 16px rgba(255, 255, 255, 0.5); }
+}
+
+.level-node-current {
+  animation: level-pulse 1.5s ease-in-out infinite;
+}
+
 /* ===== Utility ===== */
 .text-green { color: #00ff41; }
 .text-blue { color: #00d4ff; }

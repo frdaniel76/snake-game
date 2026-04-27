@@ -4,6 +4,9 @@ import { createEngine } from './engine.js';
 import { createRenderer } from './renderer.js';
 import { createInput } from './input.js';
 import { createAudio } from './audio.js';
+import { createCamera } from './camera.js';
+import { gridWidth, gridHeight } from './grid.js';
+import { getHead } from './snake.js';
 
 // DOM elements
 const canvas = document.getElementById('game-canvas');
@@ -14,15 +17,45 @@ const renderer = createRenderer(canvas);
 const engine = createEngine();
 const input = createInput(canvas);
 const audio = createAudio();
+const camera = createCamera();
+let cameraActive = false;
+
+// World definitions
+const WORLDS = [
+  { id: 1, name: 'Green Meadow', color: COLORS.WORLD_1, levels: [1,2,3,4,5,6,7] },
+  { id: 2, name: 'Ancient Temple', color: COLORS.WORLD_2, levels: [8,9,10,11,12,13,14] },
+  { id: 3, name: 'Ice Cavern', color: COLORS.WORLD_3, levels: [15,16,17,18,19,20,21] },
+  { id: 4, name: 'Shadow Forest', color: COLORS.WORLD_4, levels: [22,23,24,25,26,27,28] },
+  { id: 5, name: 'Void Realm', color: COLORS.WORLD_5, levels: [29,30,31,32,33,34,35] },
+];
 
 // Game state (simple for now — full state.js comes later)
 let lives = LIVES_START;
 let currentLevelId = 1;
 let currentScore = 0;
+let levelStars = {}; // { levelId: starCount } — missing means not completed
+
+// Persistence
+function saveProgress() {
+  try {
+    localStorage.setItem('snake_quest_save', JSON.stringify({ levelStars, currentLevelId, lives }));
+  } catch (e) { /* ignore */ }
+}
+
+function loadProgress() {
+  try {
+    const raw = localStorage.getItem('snake_quest_save');
+    if (raw) {
+      const data = JSON.parse(raw);
+      if (data.levelStars) levelStars = data.levelStars;
+      if (data.currentLevelId) currentLevelId = data.currentLevelId;
+      if (data.lives) lives = data.lives;
+    }
+  } catch (e) { /* ignore */ }
+}
 
 // --- Screen Management ---
-// For now, use simple DOM screens rendered into uiLayer
-// Screens: 'menu', 'gameplay', 'death', 'complete', 'gameover'
+// Screens: 'menu', 'world-map', 'level-select', 'level-intro', 'gameplay', 'death', 'complete', 'gameover'
 let currentScreen = null;
 
 function showScreen(name, data) {
@@ -32,6 +65,8 @@ function showScreen(name, data) {
 
   switch (name) {
     case 'menu': renderMenuScreen(); break;
+    case 'world-map': renderWorldMapScreen(); break;
+    case 'level-select': renderLevelSelectScreen(data); break;
     case 'level-intro': renderLevelIntroScreen(data); break;
     case 'gameplay': startGameplay(data?.levelId ?? currentLevelId); break;
     case 'death': renderDeathScreen(data); break;
@@ -53,15 +88,195 @@ function renderMenuScreen() {
         ${renderHearts(lives)}
       </div>
       <button class="btn btn-primary font-ui" id="btn-play">PLAY</button>
-      <p class="font-pixel" style="color: ${COLORS.GREY}; font-size: 8px; text-align: center;">Level ${currentLevelId}</p>
+      <button class="btn btn-secondary font-ui" id="btn-continue" style="font-size: 12px;">CONTINUE &mdash; Level ${currentLevelId}</button>
     </div>
   `;
 
   document.getElementById('btn-play').onclick = () => {
     audio.resume();
     audio.buttonTap();
+    showScreen('world-map');
+  };
+  document.getElementById('btn-continue').onclick = () => {
+    audio.resume();
+    audio.buttonTap();
     showScreen('level-intro', { levelId: currentLevelId });
   };
+}
+
+// --- World Map Screen ---
+function renderWorldMapScreen() {
+  engine.stop();
+  renderer.clear();
+
+  function isWorldUnlocked(world) {
+    if (world.id === 1) return true;
+    const prevWorld = WORLDS.find(w => w.id === world.id - 1);
+    if (!prevWorld) return false;
+    const lastLevelId = prevWorld.levels[prevWorld.levels.length - 1];
+    return (levelStars[lastLevelId] || 0) >= 1;
+  }
+
+  function getWorldStats(world) {
+    let completed = 0;
+    let stars = 0;
+    for (const lid of world.levels) {
+      if (levelStars[lid] !== undefined && levelStars[lid] >= 1) completed++;
+      stars += (levelStars[lid] || 0);
+    }
+    return { completed, total: world.levels.length, stars, maxStars: world.levels.length * 3 };
+  }
+
+  let worldCardsHtml = '';
+  for (const world of WORLDS) {
+    const unlocked = isWorldUnlocked(world);
+    const stats = getWorldStats(world);
+    const pct = Math.round((stats.completed / stats.total) * 100);
+
+    worldCardsHtml += `
+      <div class="world-card" data-world-id="${world.id}" style="
+        background: ${COLORS.NAVY}; border-radius: 14px; border: 2px solid ${world.color};
+        padding: 16px; width: 90%; max-width: 340px; margin-bottom: 12px;
+        cursor: ${unlocked ? 'pointer' : 'default'}; opacity: ${unlocked ? 1 : 0.4};
+        position: relative;
+      ">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <h3 class="font-pixel" style="color: ${world.color}; font-size: 11px;">WORLD ${world.id}: ${world.name.toUpperCase()}</h3>
+          <span class="font-ui" style="color: ${COLORS.GOLD}; font-size: 12px;">\u2B50 ${stats.stars}/${stats.maxStars}</span>
+        </div>
+        <div style="width: 100%; height: 6px; background: ${COLORS.VOID}; border-radius: 3px; margin: 10px 0 6px;">
+          <div style="width: ${pct}%; height: 100%; background: ${world.color}; border-radius: 3px; transition: width 0.3s;"></div>
+        </div>
+        <p class="font-ui" style="color: ${COLORS.GREY}; font-size: 12px;">${stats.completed}/${stats.total} levels complete</p>
+        ${!unlocked ? `<div style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 28px;">\uD83D\uDD12</div>` : ''}
+      </div>
+    `;
+  }
+
+  uiLayer.innerHTML = `
+    <div class="screen active" style="overflow-y: auto; justify-content: flex-start; padding-top: 16px;">
+      <button id="btn-back-worldmap" class="font-ui" style="align-self: flex-start; background: none; border: none; color: ${COLORS.WHITE}; font-size: 14px; padding: 8px 12px; cursor: pointer;">&larr; Back</button>
+      <h2 class="font-pixel" style="color: ${COLORS.GREEN}; font-size: 14px; margin: 12px 0;">WORLDS</h2>
+      ${worldCardsHtml}
+    </div>
+  `;
+
+  document.getElementById('btn-back-worldmap').onclick = () => {
+    audio.buttonTap();
+    showScreen('menu');
+  };
+
+  document.querySelectorAll('.world-card').forEach(card => {
+    card.addEventListener('click', () => {
+      const wid = parseInt(card.dataset.worldId);
+      const world = WORLDS.find(w => w.id === wid);
+      if (world && isWorldUnlocked(world)) {
+        audio.buttonTap();
+        showScreen('level-select', { worldId: wid });
+      }
+    });
+  });
+}
+
+// --- Level Select Screen ---
+function renderLevelSelectScreen(data) {
+  engine.stop();
+  renderer.clear();
+
+  const worldId = data?.worldId ?? 1;
+  const world = WORLDS.find(w => w.id === worldId);
+  if (!world) { showScreen('world-map'); return; }
+
+  function isLevelUnlocked(levelId) {
+    if (levelId === 1) return true;
+    // First level of a world: previous level by id must be completed
+    const prevId = levelId - 1;
+    return (levelStars[prevId] || 0) >= 1;
+  }
+
+  function isLevelCompleted(levelId) {
+    return (levelStars[levelId] || 0) >= 1;
+  }
+
+  // Find "current" level (first uncompleted unlocked level in this world)
+  let currentPlayLevel = null;
+  for (const lid of world.levels) {
+    if (!isLevelCompleted(lid) && isLevelUnlocked(lid)) {
+      currentPlayLevel = lid;
+      break;
+    }
+  }
+
+  // Star count for this world
+  let worldStars = 0;
+  let worldMaxStars = world.levels.length * 3;
+  for (const lid of world.levels) {
+    worldStars += (levelStars[lid] || 0);
+  }
+
+  let nodesHtml = '';
+  for (const lid of world.levels) {
+    const unlocked = isLevelUnlocked(lid);
+    const completed = isLevelCompleted(lid);
+    const isCurrent = lid === currentPlayLevel;
+    const stars = levelStars[lid] || 0;
+
+    let borderColor = COLORS.GREY;
+    if (completed) borderColor = COLORS.GREEN;
+    else if (isCurrent) borderColor = world.color;
+    else if (!unlocked) borderColor = COLORS.GREY;
+
+    const levelNum = lid - world.levels[0] + 1;
+
+    nodesHtml += `
+      <div class="level-node ${isCurrent ? 'level-node-current' : ''}" data-level-id="${lid}" style="
+        aspect-ratio: 1; border-radius: 14px; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; gap: 4px;
+        background: ${COLORS.NAVY}; border: 2px solid ${borderColor};
+        cursor: ${unlocked ? 'pointer' : 'default'};
+        opacity: ${unlocked ? 1 : 0.35};
+        position: relative;
+      ">
+        ${!unlocked ? `<span style="font-size: 20px;">\uD83D\uDD12</span>` : `
+          <span class="font-pixel" style="font-size: 16px; color: ${COLORS.WHITE};">${levelNum}</span>
+          <div style="display: flex; gap: 2px;">
+            <span style="color: ${stars >= 1 ? COLORS.GOLD : COLORS.GREY}; font-size: 10px;">\u2605</span>
+            <span style="color: ${stars >= 2 ? COLORS.GOLD : COLORS.GREY}; font-size: 10px;">\u2605</span>
+            <span style="color: ${stars >= 3 ? COLORS.GOLD : COLORS.GREY}; font-size: 10px;">\u2605</span>
+          </div>
+        `}
+      </div>
+    `;
+  }
+
+  uiLayer.innerHTML = `
+    <div class="screen active" style="overflow-y: auto; justify-content: flex-start;">
+      <div style="display: flex; justify-content: space-between; width: 100%; padding: 12px 16px; align-items: center;">
+        <button id="btn-back-levelselect" class="font-ui" style="background: none; border: none; color: ${COLORS.WHITE}; font-size: 14px; padding: 8px; cursor: pointer;">&larr; Back</button>
+        <h2 class="font-pixel" style="color: ${world.color}; font-size: 12px;">${world.name.toUpperCase()}</h2>
+        <span class="font-ui" style="color: ${COLORS.GOLD}; font-size: 13px;">\u2B50 ${worldStars}/${worldMaxStars}</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; padding: 16px; width: 100%; max-width: 320px;">
+        ${nodesHtml}
+      </div>
+    </div>
+  `;
+
+  document.getElementById('btn-back-levelselect').onclick = () => {
+    audio.buttonTap();
+    showScreen('world-map');
+  };
+
+  document.querySelectorAll('.level-node').forEach(node => {
+    node.addEventListener('click', () => {
+      const lid = parseInt(node.dataset.levelId);
+      if (isLevelUnlocked(lid)) {
+        audio.buttonTap();
+        currentLevelId = lid;
+        showScreen('level-intro', { levelId: lid });
+      }
+    });
+  });
 }
 
 // --- Level Intro Screen ---
@@ -135,6 +350,13 @@ function startGameplay(levelId) {
   // Setup engine
   const session = engine.startLevel(levelData);
 
+  // If camera is active, snap to the snake's starting position
+  if (cameraActive) {
+    const startX = levelData.snakeStart.x;
+    const startY = levelData.snakeStart.y;
+    camera.snapTo(startX, startY);
+  }
+
   // Show goal briefly
   const goalEl = document.getElementById('hud-goal');
   const goalTexts = { 'eat-all': 'Eat all apples', 'reach-exit': 'Reach the exit', 'eat-all-and-exit': 'Eat all apples → reach exit' };
@@ -151,6 +373,11 @@ function startGameplay(levelId) {
 
   // Wire engine callbacks
   engine.onRender = (sess, interp) => {
+    // Update camera to follow snake head
+    if (cameraActive && sess.snake && sess.snake.alive) {
+      const head = getHead(sess.snake);
+      camera.follow(head.x, head.y, sess.snake.dir);
+    }
     renderer.clear();
     renderer.drawBoard(sess.grid, sess.warpEdges);
     renderer.drawSnake(sess.snake, interp, sess.prevSegments);
@@ -306,6 +533,12 @@ function renderGameOverScreen() {
 function renderCompleteScreen(data) {
   engine.stop();
   const stars = data?.stars ?? 1;
+
+  // Record star progress
+  const completedLevelId = data?.levelId ?? currentLevelId;
+  levelStars[completedLevelId] = Math.max(levelStars[completedLevelId] || 0, stars);
+  saveProgress();
+
   const starHtml = [1, 2, 3].map(i =>
     `<span class="font-pixel" style="font-size: 28px; color: ${i <= stars ? COLORS.GOLD : COLORS.GREY};">★</span>`
   ).join('');
@@ -369,11 +602,27 @@ function resizeCanvas(grid) {
   const h = window.innerHeight;
   const gw = grid[0]?.length ?? BOARD_W;
   const gh = grid.length ?? BOARD_H;
-  renderer.resize(w, h, gw, gh);
+  const { viewTilesW, viewTilesH } = renderer.resize(w, h, gw, gh);
+
+  // Update camera if active (board is larger than viewport)
+  if (camera.needsCamera(gw, gh, viewTilesW, viewTilesH)) {
+    camera.init(gw, gh, viewTilesW, viewTilesH);
+    cameraActive = true;
+    renderer.setCamera(camera);
+    // Re-snap to snake head if mid-game (e.g. orientation change on mobile)
+    if (engine.session?.snake) {
+      const head = getHead(engine.session.snake);
+      camera.snapTo(head.x, head.y);
+    }
+  } else {
+    cameraActive = false;
+    renderer.setCamera(null);
+  }
 }
 
 // --- Init ---
 function init() {
+  loadProgress();
   window.addEventListener('resize', () => {
     if (engine.session?.grid) {
       resizeCanvas(engine.session.grid);
