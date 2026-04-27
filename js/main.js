@@ -35,10 +35,19 @@ let currentLevelId = 1;
 let currentScore = 0;
 let levelStars = {}; // { levelId: starCount } — missing means not completed
 
+// Settings
+let settings = {
+  controlScheme: 'swipe',
+  soundEnabled: true,
+  vibration: true,
+  gridLines: true,
+  screenShake: true,
+};
+
 // Persistence
 function saveProgress() {
   try {
-    localStorage.setItem('snake_quest_save', JSON.stringify({ levelStars, currentLevelId, lives }));
+    localStorage.setItem('snake_quest_save', JSON.stringify({ levelStars, currentLevelId, lives, settings }));
   } catch (e) { /* ignore */ }
 }
 
@@ -50,9 +59,45 @@ function loadProgress() {
       if (data.levelStars) levelStars = data.levelStars;
       if (data.currentLevelId) currentLevelId = data.currentLevelId;
       if (data.lives) lives = data.lives;
+      if (data.settings) settings = { ...settings, ...data.settings };
     }
   } catch (e) { /* ignore */ }
+  // Apply loaded settings
+  input.setMode(settings.controlScheme);
+  audio.setEnabled(settings.soundEnabled);
 }
+
+// --- Particle System ---
+function createParticles(count, x, y, options) {
+  return Array.from({ length: count }, () => ({
+    x, y,
+    vx: (Math.random() - 0.5) * (options.spread || 4),
+    vy: (Math.random() - 0.5) * (options.spread || 4) - (options.upward || 0),
+    color: options.colors[Math.floor(Math.random() * options.colors.length)],
+    size: options.size || 3,
+    life: 1,
+    decay: 0.015 + Math.random() * 0.01,
+  }));
+}
+
+function updateAndDrawParticles(particles, ctx, scale) {
+  for (const p of particles) {
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.1; // gravity
+    p.life -= p.decay;
+    if (p.life <= 0) continue;
+    ctx.globalAlpha = p.life;
+    ctx.fillStyle = p.color;
+    ctx.fillRect(p.x, p.y, p.size * scale, p.size * scale);
+  }
+  ctx.globalAlpha = 1;
+  return particles.some(p => p.life > 0);
+}
+
+// --- Animation State ---
+let deathAnimation = null;
+let celebrationAnim = null;
 
 // --- Screen Management ---
 // Screens: 'menu', 'world-map', 'level-select', 'level-intro', 'gameplay', 'death', 'complete', 'gameover'
@@ -65,6 +110,7 @@ function showScreen(name, data) {
 
   switch (name) {
     case 'menu': renderMenuScreen(); break;
+    case 'settings': renderSettingsScreen(); break;
     case 'world-map': renderWorldMapScreen(); break;
     case 'level-select': renderLevelSelectScreen(data); break;
     case 'level-intro': renderLevelIntroScreen(data); break;
@@ -89,6 +135,7 @@ function renderMenuScreen() {
       </div>
       <button class="btn btn-primary font-ui" id="btn-play">PLAY</button>
       <button class="btn btn-secondary font-ui" id="btn-continue" style="font-size: 12px;">CONTINUE &mdash; Level ${currentLevelId}</button>
+      <button class="btn btn-secondary font-ui" id="btn-settings" style="font-size: 12px; margin-top: 4px;">SETTINGS</button>
     </div>
   `;
 
@@ -101,6 +148,135 @@ function renderMenuScreen() {
     audio.resume();
     audio.buttonTap();
     showScreen('level-intro', { levelId: currentLevelId });
+  };
+  document.getElementById('btn-settings').onclick = () => {
+    audio.buttonTap();
+    showScreen('settings');
+  };
+}
+
+// --- Settings Screen ---
+function renderSettingsScreen() {
+  engine.stop();
+  renderer.clear();
+
+  function toggleHtml(id, label, isOn) {
+    return `
+      <div class="settings-row">
+        <span class="settings-row-label">${label}</span>
+        <div id="${id}" class="toggle-switch ${isOn ? 'on' : ''}" data-setting="${id}">
+          <div class="toggle-knob"></div>
+        </div>
+      </div>
+    `;
+  }
+
+  uiLayer.innerHTML = `
+    <div class="screen active" style="overflow-y: auto; justify-content: flex-start;">
+      <div style="display: flex; justify-content: space-between; width: 100%; padding: 12px 16px; align-items: center;">
+        <button id="btn-settings-back" class="font-ui" style="background: none; border: none; color: ${COLORS.WHITE}; font-size: 14px; padding: 8px; cursor: pointer;">&larr; Back</button>
+        <h2 class="font-pixel" style="color: ${COLORS.GREEN}; font-size: 12px;">SETTINGS</h2>
+        <div style="width: 48px;"></div>
+      </div>
+
+      <div class="settings-section">
+        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px;">CONTROLS</h3>
+        <div class="settings-toggle-group" id="control-scheme-group">
+          <button data-mode="swipe" class="${settings.controlScheme === 'swipe' ? 'active' : ''}">Swipe</button>
+          <button data-mode="tap" class="${settings.controlScheme === 'tap' ? 'active' : ''}">Tap</button>
+          <button data-mode="dpad" class="${settings.controlScheme === 'dpad' ? 'active' : ''}">D-pad</button>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px;">AUDIO</h3>
+        ${toggleHtml('toggle-sound', 'Sound Effects', settings.soundEnabled)}
+      </div>
+
+      <div class="settings-section">
+        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px;">DISPLAY</h3>
+        ${toggleHtml('toggle-vibration', 'Vibration', settings.vibration)}
+        ${toggleHtml('toggle-gridlines', 'Grid Lines', settings.gridLines)}
+        ${toggleHtml('toggle-screenshake', 'Screen Shake', settings.screenShake)}
+      </div>
+
+      <div class="settings-section">
+        <h3 class="font-pixel" style="color: ${COLORS.GREY}; font-size: 9px;">DATA</h3>
+        <div id="reset-container">
+          <button class="btn-reset-progress" id="btn-reset">RESET PROGRESS</button>
+        </div>
+      </div>
+
+      <div style="height: 32px;"></div>
+    </div>
+  `;
+
+  // Back button
+  document.getElementById('btn-settings-back').onclick = () => {
+    audio.buttonTap();
+    showScreen('menu');
+  };
+
+  // Control scheme buttons
+  document.querySelectorAll('#control-scheme-group button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      audio.buttonTap();
+      const mode = btn.dataset.mode;
+      settings.controlScheme = mode;
+      input.setMode(mode);
+      document.querySelectorAll('#control-scheme-group button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      saveProgress();
+    });
+  });
+
+  // Toggle switches
+  function wireToggle(id, settingKey, onChange) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', () => {
+      audio.buttonTap();
+      settings[settingKey] = !settings[settingKey];
+      el.classList.toggle('on', settings[settingKey]);
+      if (onChange) onChange(settings[settingKey]);
+      saveProgress();
+    });
+  }
+
+  wireToggle('toggle-sound', 'soundEnabled', (on) => audio.setEnabled(on));
+  wireToggle('toggle-vibration', 'vibration');
+  wireToggle('toggle-gridlines', 'gridLines');
+  wireToggle('toggle-screenshake', 'screenShake');
+
+  // Reset progress
+  document.getElementById('btn-reset').onclick = () => {
+    audio.buttonTap();
+    const container = document.getElementById('reset-container');
+    container.innerHTML = `
+      <p class="font-ui" style="color: ${COLORS.RED}; font-size: 13px; margin-bottom: 10px; text-align: center;">Are you sure? This cannot be undone.</p>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn-reset-cancel" id="btn-reset-cancel">CANCEL</button>
+        <button class="btn-reset-confirm" id="btn-reset-confirm">CONFIRM</button>
+      </div>
+    `;
+    document.getElementById('btn-reset-cancel').onclick = () => {
+      audio.buttonTap();
+      container.innerHTML = `<button class="btn-reset-progress" id="btn-reset">RESET PROGRESS</button>`;
+      document.getElementById('btn-reset').onclick = arguments.callee; // re-wire (will re-render instead)
+      // Simpler: just re-render the screen
+      renderSettingsScreen();
+    };
+    document.getElementById('btn-reset-confirm').onclick = () => {
+      audio.buttonTap();
+      localStorage.removeItem('snake_quest_save');
+      lives = LIVES_START;
+      currentLevelId = 1;
+      levelStars = {};
+      settings = { controlScheme: 'swipe', soundEnabled: true, vibration: true, gridLines: true, screenShake: true };
+      input.setMode('swipe');
+      audio.setEnabled(true);
+      showScreen('menu');
+    };
   };
 }
 
@@ -380,7 +556,58 @@ function startGameplay(levelId) {
     }
     renderer.clear();
     renderer.drawBoard(sess.grid, sess.warpEdges);
-    renderer.drawSnake(sess.snake, interp, sess.prevSegments);
+
+    const ctx = renderer.ctx;
+    const sc = renderer.scale;
+
+    // Death animation
+    if (deathAnimation && deathAnimation.active) {
+      const elapsed = performance.now() - deathAnimation.startTime;
+      const ts = TILE * sc;
+
+      if (elapsed < 300) {
+        // Flash phase: draw snake segments alternating red/white
+        const flashIdx = Math.floor(elapsed / 100) % 2;
+        const flashColor = flashIdx === 0 ? COLORS.RED : COLORS.WHITE;
+        for (const seg of deathAnimation.segments) {
+          const px = renderer.tileToPixel(seg.x, seg.y);
+          ctx.fillStyle = flashColor;
+          ctx.fillRect(px.x, px.y, ts, ts);
+        }
+      } else {
+        // Scatter phase: create particles on first frame, then animate
+        if (!deathAnimation.particles) {
+          const particles = [];
+          for (const seg of deathAnimation.segments) {
+            const px = renderer.tileToPixel(seg.x, seg.y);
+            const cx = deathAnimation.collisionPoint.x;
+            const cy = deathAnimation.collisionPoint.y;
+            const dx = px.x - cx;
+            const dy = px.y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            particles.push({
+              x: px.x + ts / 2,
+              y: px.y + ts / 2,
+              vx: (dx / dist) * (2 + Math.random() * 3),
+              vy: (dy / dist) * (2 + Math.random() * 3),
+              color: COLORS.GREEN,
+              size: 4,
+              life: 1,
+              decay: 0.018 + Math.random() * 0.012,
+            });
+          }
+          deathAnimation.particles = particles;
+        }
+        updateAndDrawParticles(deathAnimation.particles, ctx, sc);
+      }
+    } else if (celebrationAnim && celebrationAnim.active) {
+      // Draw snake normally during celebration
+      renderer.drawSnake(sess.snake, interp, sess.prevSegments);
+      // Overlay confetti
+      updateAndDrawParticles(celebrationAnim.particles, ctx, sc);
+    } else {
+      renderer.drawSnake(sess.snake, interp, sess.prevSegments);
+    }
   };
 
   engine.onScoreChange = (score) => {
@@ -410,20 +637,50 @@ function startGameplay(levelId) {
     audio.death();
     audio.lifeLost();
     lives--;
+
+    // Capture snake segments for death animation
+    const segs = session.snake.segments.map(s => ({ ...s }));
+    const headSeg = segs[0];
+    const headPixel = renderer.tileToPixel(headSeg.x, headSeg.y);
+    deathAnimation = {
+      active: true,
+      startTime: performance.now(),
+      segments: segs,
+      collisionPoint: headPixel,
+      particles: null,
+      cause,
+    };
+
     setTimeout(() => {
+      deathAnimation = null;
       if (lives <= 0) {
         showScreen('gameover');
       } else {
         showScreen('death', { cause, levelId: currentLevelId });
       }
-    }, 600); // brief delay for death to register visually
+    }, 800);
   };
 
   engine.onLevelComplete = (stats) => {
     audio.levelComplete();
+
+    // Spawn celebration confetti
+    const canvasW = canvas.width / (window.devicePixelRatio || 1);
+    const canvasH = canvas.height / (window.devicePixelRatio || 1);
+    const cx = canvasW / 2;
+    const cy = canvasH * 0.3;
+    const confettiColors = [COLORS.GREEN, COLORS.GOLD, COLORS.BLUE, COLORS.RED, COLORS.PURPLE, COLORS.ORANGE, COLORS.ICE];
+    const count = 40 + Math.floor(Math.random() * 21); // 40-60
+    celebrationAnim = {
+      active: true,
+      startTime: performance.now(),
+      particles: createParticles(count, cx, cy, { spread: 8, upward: 3, colors: confettiColors, size: 4 }),
+    };
+
     setTimeout(() => {
+      celebrationAnim = null;
       showScreen('complete', { ...stats, levelId: currentLevelId });
-    }, 400);
+    }, 600);
   };
 
   // Pause button
