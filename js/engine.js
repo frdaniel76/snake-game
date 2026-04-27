@@ -1,5 +1,5 @@
-import { COLORS, BASE_TICK_MS, ELEM, SCORE_FOOD, SCORE_GOLDEN, GROW_FOOD, GROW_GOLDEN } from './config.js';
-import { getTile, clearTile, findTiles } from './grid.js';
+import { COLORS, BASE_TICK_MS, ELEM, SCORE_FOOD, SCORE_GOLDEN, GROW_FOOD, GROW_GOLDEN, BREAK_WALL_COST, SPEED_BOOST_MULT, SLOW_MULT, SPEED_EFFECT_DURATION, SHRINK_POISON } from './config.js';
+import { getTile, setTile, clearTile, findTiles, gridWidth, gridHeight } from './grid.js';
 import {
   createSnake,
   moveSnake,
@@ -9,6 +9,7 @@ import {
   shrinkSnake,
   killSnake,
   getHead,
+  getLength,
 } from './snake.js';
 
 export function createEngine() {
@@ -26,14 +27,37 @@ export function createEngine() {
   let _onLevelComplete = null;
   let _onScoreChange = null;
   let _onFoodEaten = null;
+  let _onHeartCollected = null;
+
+  // ---- Helper: check if a tile is deadly for the snake ----
+
+  function isDeadly(tile, snakeDir, sess) {
+    if (!tile) return true; // out of bounds
+    if (tile.type === ELEM.WALL) return true;
+    if (tile.type === ELEM.GATE) return true; // gates that still exist haven't been unlocked
+    if (tile.type === ELEM.ONE_WAY && tile.data && snakeDir !== tile.data.dir) return true;
+    if (tile.type === ELEM.MOVING_OBS) return true;
+    return false;
+  }
 
   // ---- Core tick logic ----
 
   function tick() {
     if (!session || !session.snake.alive) return;
 
+    // Check speed modifier expiry
+    if (session.speedMod && performance.now() >= session.speedMod.until) {
+      session.speedMod = null;
+      tickMs = BASE_TICK_MS / (session.speed || 1);
+    }
+
     const snake = session.snake;
     const grid = session.grid;
+
+    // Ice: if on ice, ignore queued direction change (keep sliding)
+    if (session.onIce) {
+      snake.nextDir = snake.dir;
+    }
 
     // Store previous positions for interpolation
     session.prevSegments = snake.segments.map(s => ({ ...s }));
@@ -41,9 +65,34 @@ export function createEngine() {
     // Move snake
     const { newHead, removedTail } = moveSnake(snake);
 
-    // Check bounds (wall collision or warp)
+    // Reset portal cooldown if head moved off a portal tile
+    if (session.portalCooldown) {
+      const prevHeadTile = getTile(grid, session.prevSegments[0].x, session.prevSegments[0].y);
+      if (!prevHeadTile || prevHeadTile.type !== ELEM.PORTAL) {
+        session.portalCooldown = false;
+      }
+    }
+
+    // Warp edges: wrap coordinates before bounds/deadly check
+    const warp = session.warpEdges;
+    if (warp) {
+      const gw = gridWidth(grid);
+      const gh = gridHeight(grid);
+      if (warp.left && newHead.x < 1) {
+        newHead.x = gw - 2;
+      } else if (warp.right && newHead.x >= gw - 1) {
+        newHead.x = 1;
+      }
+      if (warp.top && newHead.y < 1) {
+        newHead.y = gh - 2;
+      } else if (warp.bottom && newHead.y >= gh - 1) {
+        newHead.y = 1;
+      }
+    }
+
+    // Check bounds and deadly tiles
     const tile = getTile(grid, newHead.x, newHead.y);
-    if (!tile || tile.type === ELEM.WALL) {
+    if (isDeadly(tile, snake.dir, session)) {
       killSnake(snake);
       if (_onDeath) _onDeath('wall');
       return;
@@ -56,8 +105,21 @@ export function createEngine() {
       return;
     }
 
+    // Update ice state based on new head position
+    if (tile.type === ELEM.ICE) {
+      session.onIce = true;
+    } else {
+      session.onIce = false;
+    }
+
     // Resolve element collision
     resolveElement(tile, newHead, snake);
+
+    // Update moving obstacles
+    updateMovingObstacles(session);
+
+    // Update timed food
+    updateTimedFood(session);
 
     // Check level goal
     checkGoal();
@@ -84,13 +146,153 @@ export function createEngine() {
         break;
 
       case ELEM.EXIT:
-        if (session.goalMet) {
-          // Level complete is handled by checkGoal
-        }
-        // If goal not met, exit is passable but doesn't complete
+        // Exit is passable; completion is handled by checkGoal
         break;
 
-      // More element types added in later phases
+      case ELEM.PORTAL:
+        if (!session.portalCooldown && tile.data) {
+          const portals = findTiles(session.grid, ELEM.PORTAL);
+          const dest = portals.find(
+            p => p.data && p.data.pairId === tile.data.pairId && (p.x !== pos.x || p.y !== pos.y)
+          );
+          if (dest) {
+            // Teleport snake head to the paired portal
+            snake.segments[0].x = dest.x;
+            snake.segments[0].y = dest.y;
+            session.portalCooldown = true;
+          }
+        }
+        break;
+
+      case ELEM.KEY:
+        if (tile.data) {
+          session.keysCollected.add(tile.data.color);
+          clearTile(session.grid, pos.x, pos.y);
+          // Clear all gates of the matching color
+          const gates = findTiles(session.grid, ELEM.GATE);
+          for (const gate of gates) {
+            if (gate.data && gate.data.color === tile.data.color) {
+              clearTile(session.grid, gate.x, gate.y);
+            }
+          }
+        }
+        break;
+
+      case ELEM.BREAKABLE:
+        clearTile(session.grid, pos.x, pos.y);
+        if (snake.segments.length <= 1) {
+          killSnake(snake);
+          if (_onDeath) _onDeath('breakable');
+        } else {
+          shrinkSnake(snake, BREAK_WALL_COST);
+          session.segmentsLost += BREAK_WALL_COST;
+        }
+        break;
+
+      case ELEM.ONE_WAY:
+        // Direction already validated in isDeadly; just pass through
+        break;
+
+      case ELEM.ICE:
+        // Ice state already set in tick before resolveElement
+        break;
+
+      case ELEM.SPEED_PAD:
+        session.speedMod = { type: 'fast', until: performance.now() + SPEED_EFFECT_DURATION };
+        tickMs = (BASE_TICK_MS / (session.speed || 1)) * SPEED_BOOST_MULT;
+        // Pad stays on the board — don't clear
+        break;
+
+      case ELEM.SLOW_PAD:
+        session.speedMod = { type: 'slow', until: performance.now() + SPEED_EFFECT_DURATION };
+        tickMs = (BASE_TICK_MS / (session.speed || 1)) * SLOW_MULT;
+        // Pad stays on the board — don't clear
+        break;
+
+      case ELEM.POISON:
+        if (getLength(snake) <= SHRINK_POISON) {
+          killSnake(snake);
+          if (_onDeath) _onDeath('poison');
+        } else {
+          shrinkSnake(snake, SHRINK_POISON);
+          session.segmentsLost += SHRINK_POISON;
+        }
+        clearTile(session.grid, pos.x, pos.y);
+        // Poison does NOT count as food — re-check goal handled by checkGoal
+        break;
+
+      case ELEM.TIMED_FOOD:
+        growSnake(snake, GROW_FOOD);
+        session.score += SCORE_FOOD;
+        session.foodEaten++;
+        clearTile(session.grid, pos.x, pos.y);
+        if (_onFoodEaten) _onFoodEaten('timed');
+        if (_onScoreChange) _onScoreChange(session.score);
+        break;
+
+      case ELEM.HEART:
+        clearTile(session.grid, pos.x, pos.y);
+        if (_onHeartCollected) _onHeartCollected();
+        break;
+    }
+  }
+
+  function updateMovingObstacles(sess) {
+    if (!sess.movingObstacles || sess.movingObstacles.length === 0) return;
+    sess.movingObsCounter++;
+
+    for (const obs of sess.movingObstacles) {
+      if (sess.movingObsCounter % (obs.speed || 3) !== 0) continue;
+      const path = obs.path;
+      if (!path || path.length < 2) continue;
+
+      // Clear old position
+      clearTile(sess.grid, path[obs.currentIdx].x, path[obs.currentIdx].y);
+
+      // Move to next path position
+      if (obs.forward) {
+        obs.currentIdx++;
+        if (obs.currentIdx >= path.length - 1) obs.forward = false;
+      } else {
+        obs.currentIdx--;
+        if (obs.currentIdx <= 0) obs.forward = true;
+      }
+
+      const newPos = path[obs.currentIdx];
+      setTile(sess.grid, newPos.x, newPos.y, ELEM.MOVING_OBS, { path: path, speed: obs.speed, currentIdx: obs.currentIdx, forward: obs.forward });
+
+      // Check if obstacle moved onto any snake segment
+      const snake = sess.snake;
+      for (let i = 0; i < snake.segments.length; i++) {
+        if (snake.segments[i].x === newPos.x && snake.segments[i].y === newPos.y) {
+          killSnake(snake);
+          if (_onDeath) _onDeath('moving_obstacle');
+          return;
+        }
+      }
+    }
+  }
+
+  function updateTimedFood(sess) {
+    const timedTiles = findTiles(sess.grid, ELEM.TIMED_FOOD);
+    if (timedTiles.length === 0) return;
+
+    const decrement = BASE_TICK_MS / 1000;
+
+    for (const t of timedTiles) {
+      if (!t.data) continue;
+      // t.data is a reference to the grid tile's data object
+      t.data.timeLeft -= decrement;
+      if (t.data.timeLeft <= 0) {
+        clearTile(sess.grid, t.x, t.y);
+      }
+    }
+  }
+
+  function markExitsActive(grid) {
+    const exits = findTiles(grid, ELEM.EXIT);
+    for (const exit of exits) {
+      setTile(grid, exit.x, exit.y, ELEM.EXIT, { active: true });
     }
   }
 
@@ -105,16 +307,19 @@ export function createEngine() {
       findTiles(grid, ELEM.TIMED_FOOD).length;
 
     const allFoodEaten = foodRemaining === 0;
+    const prevGoalMet = session.goalMet;
 
     if (goal.type === 'eat-all' && allFoodEaten) {
       session.goalMet = true;
       completeLevel();
     } else if (goal.type === 'reach-exit') {
       session.goalMet = true;
+      if (!prevGoalMet) markExitsActive(grid);
       const tile = getTile(grid, head.x, head.y);
       if (tile && tile.type === ELEM.EXIT) completeLevel();
     } else if (goal.type === 'eat-all-and-exit') {
       session.goalMet = allFoodEaten;
+      if (allFoodEaten && !prevGoalMet) markExitsActive(grid);
       if (allFoodEaten) {
         const tile = getTile(grid, head.x, head.y);
         if (tile && tile.type === ELEM.EXIT) completeLevel();
@@ -199,7 +404,28 @@ export function createEngine() {
         startTime: 0,
         prevSegments: null,
         keysCollected: new Set(),
+        portalCooldown: false,
+        onIce: false,
+        movingObstacles: [],
+        movingObsCounter: 0,
+        timedFoodLastUpdate: performance.now(),
+        speedMod: null,
+        warpEdges: levelData.warpEdges || false,
       };
+
+      // Initialize moving obstacles from grid data
+      const movingTiles = findTiles(session.grid, ELEM.MOVING_OBS);
+      for (const mt of movingTiles) {
+        if (mt.data && mt.data.path) {
+          session.movingObstacles.push({
+            path: mt.data.path,
+            speed: mt.data.speed || 3,
+            currentIdx: mt.data.currentIdx || 0,
+            forward: mt.data.forward !== undefined ? mt.data.forward : true,
+          });
+        }
+      }
+
       tickMs = BASE_TICK_MS / session.speed;
       accumulator = 0;
       return session;
@@ -286,6 +512,10 @@ export function createEngine() {
   Object.defineProperty(engine, 'onFoodEaten', {
     set(fn) { _onFoodEaten = fn; },
     get() { return _onFoodEaten; },
+  });
+  Object.defineProperty(engine, 'onHeartCollected', {
+    set(fn) { _onHeartCollected = fn; },
+    get() { return _onHeartCollected; },
   });
 
   return engine;

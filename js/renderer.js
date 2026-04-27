@@ -108,7 +108,7 @@ export function createRenderer(canvas) {
       ctx.fillRect(0, 0, canvas.width, canvas.height);
     },
 
-    drawBoard(grid) {
+    drawBoard(grid, warpEdges) {
       const w = gridWidth(grid);
       const h = gridHeight(grid);
       const ts = TILE * scale;
@@ -158,9 +158,82 @@ export function createRenderer(canvas) {
                 drawSprite('EXIT_INACTIVE', x, y);
               }
               break;
+            case ELEM.PORTAL:
+              if (tile.data?.color) {
+                drawSprite('PORTAL_' + tile.data.color.toUpperCase(), x, y);
+              }
+              break;
+            case ELEM.KEY:
+              if (tile.data?.color) {
+                drawSprite('KEY_' + tile.data.color.toUpperCase(), x, y);
+              }
+              break;
+            case ELEM.GATE:
+              if (tile.data?.color) {
+                drawSprite('GATE_' + tile.data.color.toUpperCase(), x, y);
+              }
+              break;
+            case ELEM.BREAKABLE:
+              drawSprite('BREAKABLE', x, y);
+              break;
+            case ELEM.ONE_WAY:
+              if (tile.data?.dir) {
+                drawSprite('ONE_WAY_' + tile.data.dir, x, y);
+              }
+              break;
+            case ELEM.ICE:
+              drawSprite('ICE', x, y);
+              break;
+            case ELEM.SPEED_PAD:
+              drawSprite('SPEED_PAD', x, y);
+              break;
+            case ELEM.SLOW_PAD:
+              drawSprite('SLOW_PAD', x, y);
+              break;
+            case ELEM.POISON:
+              drawSprite('POISON', x, y);
+              break;
+            case ELEM.MOVING_OBS:
+              // Draw patrol path under the obstacle
+              if (tile.data && tile.data.path) {
+                for (const p of tile.data.path) {
+                  if (p.x !== x || p.y !== y) {
+                    drawSprite('MOVING_PATH', p.x, p.y);
+                  }
+                }
+              }
+              drawSprite('MOVING_OBS', x, y);
+              break;
+            case ELEM.TIMED_FOOD: {
+              drawSprite('TIMED_FOOD', x, y);
+              // Draw countdown ring overlay
+              if (tile.data && tile.data.maxTime) {
+                const fraction = Math.max(0, tile.data.timeLeft / tile.data.maxTime);
+                const cx = x * ts + offsetX + ts / 2;
+                const cy = y * ts + offsetY + ts / 2;
+                const radius = ts / 2 - 1;
+                ctx.beginPath();
+                ctx.arc(cx, cy, radius, -Math.PI / 2, -Math.PI / 2 + fraction * Math.PI * 2, false);
+                ctx.strokeStyle = fraction > 0.3 ? '#ffaa00' : '#ff3333';
+                ctx.lineWidth = Math.max(2, scale);
+                ctx.stroke();
+              }
+              break;
+            }
+            case ELEM.HEART:
+              drawSprite('HEART', x, y);
+              break;
             // EMPTY and other types: floor already drawn
           }
         }
+      }
+
+      // Draw warp edge indicators on boundary tiles that have no wall
+      if (warpEdges) {
+        if (warpEdges.top) for (let x = 0; x < w; x++) { const t = getTile(grid, x, 0); if (t && t.type === ELEM.EMPTY) drawSprite('WARP_EDGE', x, 0); }
+        if (warpEdges.bottom) for (let x = 0; x < w; x++) { const t = getTile(grid, x, h - 1); if (t && t.type === ELEM.EMPTY) drawSprite('WARP_EDGE', x, h - 1); }
+        if (warpEdges.left) for (let y = 0; y < h; y++) { const t = getTile(grid, 0, y); if (t && t.type === ELEM.EMPTY) drawSprite('WARP_EDGE', 0, y); }
+        if (warpEdges.right) for (let y = 0; y < h; y++) { const t = getTile(grid, w - 1, y); if (t && t.type === ELEM.EMPTY) drawSprite('WARP_EDGE', w - 1, y); }
       }
     },
 

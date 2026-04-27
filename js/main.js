@@ -1,8 +1,9 @@
-import { COLORS, BOARD_W, BOARD_H, TILE, LIVES_START } from './config.js';
+import { COLORS, BOARD_W, BOARD_H, TILE, LIVES_START, LIVES_MAX } from './config.js';
 import { loadLevel, LEVELS } from './levels.js';
 import { createEngine } from './engine.js';
 import { createRenderer } from './renderer.js';
 import { createInput } from './input.js';
+import { createAudio } from './audio.js';
 
 // DOM elements
 const canvas = document.getElementById('game-canvas');
@@ -12,6 +13,7 @@ const uiLayer = document.getElementById('ui-layer');
 const renderer = createRenderer(canvas);
 const engine = createEngine();
 const input = createInput(canvas);
+const audio = createAudio();
 
 // Game state (simple for now — full state.js comes later)
 let lives = LIVES_START;
@@ -56,6 +58,8 @@ function renderMenuScreen() {
   `;
 
   document.getElementById('btn-play').onclick = () => {
+    audio.resume();
+    audio.buttonTap();
     showScreen('level-intro', { levelId: currentLevelId });
   };
 }
@@ -70,7 +74,7 @@ function renderLevelIntroScreen(data) {
   const levelData = loadLevel(levelId);
   resizeCanvas(levelData.grid);
   renderer.clear();
-  renderer.drawBoard(levelData.grid);
+  renderer.drawBoard(levelData.grid, levelData.warpEdges);
 
   const goalText = {
     'eat-all': 'Eat all apples',
@@ -104,6 +108,8 @@ function renderLevelIntroScreen(data) {
   `;
 
   document.getElementById('btn-start').onclick = () => {
+    audio.resume();
+    audio.buttonTap();
     showScreen('gameplay', { levelId });
   };
 }
@@ -146,7 +152,7 @@ function startGameplay(levelId) {
   // Wire engine callbacks
   engine.onRender = (sess, interp) => {
     renderer.clear();
-    renderer.drawBoard(sess.grid);
+    renderer.drawBoard(sess.grid, sess.warpEdges);
     renderer.drawSnake(sess.snake, interp, sess.prevSegments);
   };
 
@@ -155,7 +161,27 @@ function startGameplay(levelId) {
     if (el) el.textContent = score;
   };
 
+  engine.onFoodEaten = (type) => {
+    if (type === 'golden') {
+      audio.eatGolden();
+    } else {
+      audio.eatFood();
+    }
+  };
+
+  engine.onHeartCollected = () => {
+    if (lives < LIVES_MAX) {
+      lives++;
+      audio.lifeGained();
+    }
+    // Update HUD hearts
+    const heartsEl = document.getElementById('hud-hearts');
+    if (heartsEl) heartsEl.innerHTML = renderHearts(lives);
+  };
+
   engine.onDeath = (cause) => {
+    audio.death();
+    audio.lifeLost();
     lives--;
     setTimeout(() => {
       if (lives <= 0) {
@@ -167,6 +193,7 @@ function startGameplay(levelId) {
   };
 
   engine.onLevelComplete = (stats) => {
+    audio.levelComplete();
     setTimeout(() => {
       showScreen('complete', { ...stats, levelId: currentLevelId });
     }, 400);
@@ -176,6 +203,7 @@ function startGameplay(levelId) {
   const pauseBtn = document.getElementById('btn-pause');
   if (pauseBtn) {
     pauseBtn.onclick = () => {
+      audio.buttonTap();
       engine.pause();
       showPauseOverlay();
     };
@@ -201,14 +229,17 @@ function showPauseOverlay() {
   uiLayer.appendChild(overlay);
 
   document.getElementById('btn-resume').onclick = () => {
+    audio.buttonTap();
     overlay.remove();
     engine.resume();
   };
   document.getElementById('btn-restart').onclick = () => {
+    audio.buttonTap();
     engine.stop();
     showScreen('gameplay', { levelId: currentLevelId });
   };
   document.getElementById('btn-quit').onclick = () => {
+    audio.buttonTap();
     engine.stop();
     showScreen('menu');
   };
@@ -233,13 +264,14 @@ function renderDeathScreen(data) {
     </div>
   `;
 
-  document.getElementById('btn-retry').onclick = () => showScreen('gameplay', { levelId: currentLevelId });
-  document.getElementById('btn-quit-death').onclick = () => showScreen('menu');
+  document.getElementById('btn-retry').onclick = () => { audio.buttonTap(); showScreen('gameplay', { levelId: currentLevelId }); };
+  document.getElementById('btn-quit-death').onclick = () => { audio.buttonTap(); showScreen('menu'); };
 }
 
 // --- Game Over Screen ---
 function renderGameOverScreen() {
   engine.stop();
+  audio.gameOver();
 
   uiLayer.innerHTML = `
     <div class="screen active" style="justify-content: center; background: ${COLORS.VOID};">
@@ -253,6 +285,7 @@ function renderGameOverScreen() {
   `;
 
   document.getElementById('btn-continue').onclick = () => {
+    audio.buttonTap();
     // Reset lives and continue from world start
     lives = LIVES_START;
     // Find first level of current world
@@ -262,6 +295,7 @@ function renderGameOverScreen() {
     showScreen('menu');
   };
   document.getElementById('btn-menu-go').onclick = () => {
+    audio.buttonTap();
     lives = LIVES_START;
     currentLevelId = 1;
     showScreen('menu');
@@ -280,8 +314,14 @@ function renderCompleteScreen(data) {
   const nextExists = LEVELS.find(l => l.id === nextLevelId);
 
   // Award extra life for 3 stars
-  if (stars === 3 && lives < 5) {
+  if (stars === 3 && lives < LIVES_MAX) {
     lives++;
+    audio.lifeGained();
+  }
+
+  // Play star sounds with staggered timing
+  for (let i = 0; i < stars; i++) {
+    setTimeout(() => audio.starAwarded(), 200 + i * 250);
   }
 
   uiLayer.innerHTML = `
@@ -306,12 +346,13 @@ function renderCompleteScreen(data) {
 
   if (nextExists) {
     document.getElementById('btn-next').onclick = () => {
+      audio.buttonTap();
       currentLevelId = nextLevelId;
       showScreen('level-intro', { levelId: nextLevelId });
     };
   }
-  document.getElementById('btn-retry-complete').onclick = () => showScreen('gameplay', { levelId: currentLevelId });
-  document.getElementById('btn-menu-complete').onclick = () => showScreen('menu');
+  document.getElementById('btn-retry-complete').onclick = () => { audio.buttonTap(); showScreen('gameplay', { levelId: currentLevelId }); };
+  document.getElementById('btn-menu-complete').onclick = () => { audio.buttonTap(); showScreen('menu'); };
 }
 
 // --- Helpers ---
