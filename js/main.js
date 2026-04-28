@@ -106,14 +106,30 @@ function updateLifeTimerDisplay() {
   if (lives >= LIVES_MAX) {
     timerEl.textContent = 'FULL';
     timerEl.style.color = COLORS.GREEN;
-  } else {
+  } else if (lives > 0) {
     const cd = getNextLifeCountdown();
     timerEl.textContent = cd ? `Next: ${cd}` : '';
     timerEl.style.color = COLORS.GREY;
+  } else {
+    const cd = getNextLifeCountdown();
+    timerEl.textContent = cd ? `Next life: ${cd}` : 'Regenerating...';
+    timerEl.style.color = COLORS.RED;
   }
-  // Also update heart display if visible
+  // Also update heart display and continue button if visible
   const heartsEl = document.getElementById('menu-hearts');
   if (heartsEl) heartsEl.innerHTML = renderHearts(lives);
+  const contBtn = document.getElementById('btn-continue');
+  if (contBtn) {
+    if (lives > 0) {
+      contBtn.disabled = false;
+      contBtn.style.opacity = '1';
+      contBtn.style.pointerEvents = 'auto';
+    } else {
+      contBtn.disabled = true;
+      contBtn.style.opacity = '0.4';
+      contBtn.style.pointerEvents = 'none';
+    }
+  }
 }
 
 function onLifeLost() {
@@ -305,7 +321,7 @@ function renderMenuScreen() {
         <div id="menu-hearts" style="display: flex; gap: 8px;">${renderHearts(lives)}</div>
         <span id="life-timer" class="font-ui" style="font-size: 11px; color: ${lives >= LIVES_MAX ? COLORS.GREEN : COLORS.GREY};">${lives >= LIVES_MAX ? 'FULL' : 'Next: ' + (getNextLifeCountdown() || '...')}</span>
       </div>
-      <button class="btn btn-primary font-ui" id="btn-continue">CONTINUE &mdash; Level ${currentLevelId}</button>
+      <button class="btn btn-primary font-ui" id="btn-continue" ${lives <= 0 ? 'disabled style="opacity: 0.4; pointer-events: none;"' : ''}>CONTINUE &mdash; Level ${currentLevelId}</button>
       <button class="btn btn-secondary font-ui" id="btn-play" style="font-size: 12px;">CHOOSE LEVEL</button>
       <button class="btn btn-secondary font-ui" id="btn-settings" style="font-size: 12px; margin-top: 4px;">SETTINGS</button>
       <button class="btn btn-secondary font-ui" id="btn-stats" style="font-size: 12px; margin-top: 4px;">STATS</button>
@@ -955,10 +971,6 @@ function renderLevelIntroScreen(data) {
   document.getElementById('btn-start').onclick = () => {
     audio.resume();
     audio.buttonTap();
-    if (lives <= 0) {
-      showScreen('gameover');
-      return;
-    }
     showScreen('gameplay', { levelId });
   };
 }
@@ -1298,22 +1310,45 @@ function showPauseOverlay() {
 function renderDeathScreen(data) {
   engine.stop();
   const causes = { wall: 'Hit a wall!', self: 'Ate yourself!', poison: 'Poison!', obstacle: 'Caught by obstacle!' };
+  const noLives = lives <= 0;
 
   uiLayer.innerHTML = `
     <div class="screen active" style="justify-content: center; background: rgba(15,14,23,0.85);">
       <div style="background: ${COLORS.NAVY}; border-radius: 16px; padding: 24px; max-width: 300px; width: 85%; text-align: center;">
         <p class="font-pixel" style="color: ${COLORS.RED}; font-size: 14px; margin-bottom: 12px;">${causes[data?.cause] || 'You died!'}</p>
         <div style="display: flex; gap: 4px; justify-content: center; margin-bottom: 8px;">${renderHearts(lives)}</div>
-        <p class="font-ui" style="color: ${COLORS.GREY}; font-size: 13px;">${lives} ${lives === 1 ? 'life' : 'lives'} remaining</p>
+        ${noLives
+          ? `<p class="font-ui" style="color: ${COLORS.RED}; font-size: 13px;">No lives left!</p>
+             <p id="death-timer" class="font-ui" style="color: ${COLORS.GREY}; font-size: 12px; margin-top: 4px;">Next life in ${getNextLifeCountdown() || '...'}</p>`
+          : `<p class="font-ui" style="color: ${COLORS.GREY}; font-size: 13px;">${lives} ${lives === 1 ? 'life' : 'lives'} remaining</p>`
+        }
         <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
-          <button class="btn btn-primary font-ui" id="btn-retry">RETRY</button>
-          <button class="btn btn-secondary font-ui" id="btn-quit-death">QUIT</button>
+          ${noLives
+            ? `<button class="btn btn-secondary font-ui" id="btn-quit-death">MAIN MENU</button>`
+            : `<button class="btn btn-primary font-ui" id="btn-retry">RETRY</button>
+               <button class="btn btn-secondary font-ui" id="btn-quit-death">QUIT</button>`
+          }
         </div>
       </div>
     </div>
   `;
 
-  document.getElementById('btn-retry').onclick = () => { audio.buttonTap(); showScreen('gameplay', { levelId: currentLevelId }); };
+  if (!noLives) {
+    document.getElementById('btn-retry').onclick = () => { audio.buttonTap(); showScreen('gameplay', { levelId: currentLevelId }); };
+  } else {
+    // Start timer to update countdown on death screen
+    startLifeTimer();
+    const deathTimerCheck = setInterval(() => {
+      regenerateLives();
+      const el = document.getElementById('death-timer');
+      if (el) el.textContent = 'Next life in ' + (getNextLifeCountdown() || '...');
+      if (lives > 0) {
+        clearInterval(deathTimerCheck);
+        // Auto-show retry option
+        showScreen('death', data);
+      }
+    }, 1000);
+  }
   document.getElementById('btn-quit-death').onclick = () => { audio.buttonTap(); showScreen('menu'); };
 }
 
@@ -1321,24 +1356,35 @@ function renderDeathScreen(data) {
 function renderGameOverScreen() {
   engine.stop();
   audio.gameOver();
+  startLifeTimer();
 
   uiLayer.innerHTML = `
     <div class="screen active" style="justify-content: center; background: ${COLORS.VOID};">
-      <h1 class="font-pixel" style="color: ${COLORS.RED}; font-size: 22px; text-align: center; margin-bottom: 24px;">GAME OVER</h1>
-      <p class="font-ui" style="color: ${COLORS.GREY}; font-size: 14px; text-align: center; margin-bottom: 32px;">You reached Level ${currentLevelId}</p>
+      <h1 class="font-pixel" style="color: ${COLORS.RED}; font-size: 22px; text-align: center; margin-bottom: 16px;">GAME OVER</h1>
+      <p class="font-ui" style="color: ${COLORS.GREY}; font-size: 14px; text-align: center; margin-bottom: 8px;">Level ${currentLevelId}</p>
+      <div style="display: flex; gap: 4px; justify-content: center; margin-bottom: 4px;">${renderHearts(lives)}</div>
+      <p id="gameover-timer" class="font-ui" style="color: ${COLORS.GREY}; font-size: 12px; margin-bottom: 24px;">Next life in ${getNextLifeCountdown() || '...'}</p>
       <div style="display: flex; flex-direction: column; gap: 12px; width: 80%; max-width: 280px;">
-        <button class="btn btn-primary font-ui" id="btn-continue">CONTINUE</button>
-        <button class="btn btn-secondary font-ui" id="btn-menu-go">MAIN MENU</button>
+        <button class="btn btn-primary font-ui" id="btn-menu-go">MAIN MENU</button>
       </div>
     </div>
   `;
 
-  document.getElementById('btn-continue').onclick = () => {
-    audio.buttonTap();
-    // Don't reset lives — timer handles regeneration
-    showScreen('menu');
-  };
+  // Update timer on this screen
+  const goTimerCheck = setInterval(() => {
+    regenerateLives();
+    const el = document.getElementById('gameover-timer');
+    if (!el) { clearInterval(goTimerCheck); return; }
+    if (lives > 0) {
+      el.textContent = 'Life restored!';
+      el.style.color = COLORS.GREEN;
+    } else {
+      el.textContent = 'Next life in ' + (getNextLifeCountdown() || '...');
+    }
+  }, 1000);
+
   document.getElementById('btn-menu-go').onclick = () => {
+    clearInterval(goTimerCheck);
     audio.buttonTap();
     showScreen('menu');
   };

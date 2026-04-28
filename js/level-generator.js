@@ -805,9 +805,9 @@ function generateLevel(levelId, worldId, posInWorld) {
   // Elements array
   const elements = [];
 
-  // Food count scales with difficulty and board size
-  const baseFoodCount = 3 + Math.floor(diff * 5) + Math.floor((w * h) / 100);
-  const foodCount = Math.max(3, Math.min(baseFoodCount, 12));
+  // Food count scales with difficulty and board size — capped to prevent overwhelming
+  const baseFoodCount = 3 + Math.floor(diff * 4) + Math.floor((w * h) / 150);
+  const foodCount = Math.max(3, Math.min(baseFoodCount, 8));
   elements.push(...placeFood(foodCount, emptyTiles, rng, occupied));
 
   // Golden food (occasional) — use reachable tiles
@@ -863,13 +863,13 @@ function generateLevel(levelId, worldId, posInWorld) {
     elements.push(...placeSlowPads(1 + Math.floor(diff * 2), safeEmptyTiles(w, h, wallSet, occupied), rng, occupied));
   }
 
-  if (mechanics.poison && rng() < 0.3 + diff * 0.3) {
-    const count = 1 + Math.floor(diff * 3);
+  if (mechanics.poison && rng() < 0.2 + diff * 0.3) {
+    const count = Math.min(2, 1 + Math.floor(diff * 2));
     elements.push(...placePoison(count, safeEmptyTiles(w, h, wallSet, occupied), rng, occupied));
   }
 
-  if (mechanics.movingObs && rng() < 0.3 + diff * 0.3) {
-    const count = 1 + Math.floor(diff * 2);
+  if (mechanics.movingObs && rng() < 0.2 + diff * 0.3) {
+    const count = Math.min(2, 1 + Math.floor(diff * 1.5));
     elements.push(...placeMovingObs(count, w, h, rng, occupied, wallSet));
   }
 
@@ -1002,6 +1002,46 @@ const FALLBACK_LEVELS = {
     speed: 1, starTargets: { time: 40, fastTime: 25 },
     warpEdges: false,
     description: 'A peaceful garden. Slow pads offer calm. Collect all apples.',
+  },
+  50: {
+    id: 50, name: 'Temple Core', world: 2, worldName: 'Ancient Temple',
+    width: 15, height: 20, snake: { x: 7, y: 16, dir: 'UP', length: 3 },
+    goal: { type: 'eat-all-and-exit' },
+    elements: [
+      { type: ELEM.FOOD, x: 3, y: 4 }, { type: ELEM.FOOD, x: 11, y: 4 },
+      { type: ELEM.FOOD, x: 3, y: 10 }, { type: ELEM.FOOD, x: 11, y: 10 },
+      { type: ELEM.FOOD, x: 7, y: 14 }, { type: ELEM.FOOD, x: 7, y: 8 },
+      { type: ELEM.GOLDEN_FOOD, x: 7, y: 2 },
+      { type: ELEM.KEY, x: 3, y: 14, data: { color: 'red' } },
+      { type: ELEM.GATE, x: 7, y: 5, data: { color: 'red' } },
+      { type: ELEM.BREAKABLE, x: 10, y: 8 },
+      { type: ELEM.ONE_WAY, x: 5, y: 12, data: { dir: 'UP' } },
+      { type: ELEM.EXIT, x: 7, y: 1 },
+    ],
+    walls: [
+      ...range(1, 6).map(x => ({ x, y: 7 })), ...range(8, 13).map(x => ({ x, y: 7 })),
+      ...range(1, 6).map(x => ({ x, y: 12 })), ...range(8, 13).map(x => ({ x, y: 12 })),
+    ],
+    speed: 1.2, starTargets: { time: 80, fastTime: 50 }, warpEdges: false,
+    description: 'The temple boss. Keys, gates, breakable walls — master them all!',
+  },
+  46: {
+    id: 46, name: 'Hidden Chamber', world: 2, worldName: 'Ancient Temple',
+    width: 15, height: 20, snake: { x: 7, y: 16, dir: 'UP', length: 3 },
+    goal: { type: 'eat-all' },
+    elements: [
+      { type: ELEM.FOOD, x: 3, y: 5 }, { type: ELEM.FOOD, x: 11, y: 5 },
+      { type: ELEM.FOOD, x: 3, y: 10 }, { type: ELEM.FOOD, x: 11, y: 10 },
+      { type: ELEM.FOOD, x: 7, y: 14 },
+      { type: ELEM.KEY, x: 7, y: 8, data: { color: 'red' } },
+      { type: ELEM.GATE, x: 7, y: 4, data: { color: 'red' } },
+    ],
+    walls: [
+      ...range(1, 6).map(x => ({ x, y: 7 })), ...range(8, 13).map(x => ({ x, y: 7 })),
+      { x: 5, y: 12 }, { x: 9, y: 12 },
+    ],
+    speed: 1, starTargets: { time: 45, fastTime: 28 }, warpEdges: false,
+    description: 'Find the hidden key to open the chamber.',
   },
   239: {
     id: 239, name: 'Cosmic Web', world: 10, worldName: 'Cosmic Temple',
