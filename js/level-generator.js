@@ -750,9 +750,9 @@ function generateLevel(levelId, worldId, posInWorld) {
 
   // Pick wall template
   const templateFn = pickTemplate(rng, worldId, posInWorld);
-  let wallDensity = 0.04 + diff * 0.08;
-  let complexity = 1 + Math.floor(diff * 4);
-  let rooms = 2 + Math.floor(diff * 4);
+  let wallDensity = 0.03 + diff * 0.05;     // reduced: less dense walls
+  let complexity = 1 + Math.floor(diff * 3); // reduced: simpler corridors
+  let rooms = 2 + Math.floor(diff * 2.5);   // reduced: fewer rooms
 
   let rawWalls;
   if (templateFn === openArena) rawWalls = templateFn(w, h, rng, wallDensity);
@@ -1002,6 +1002,56 @@ const FALLBACK_LEVELS = {
     speed: 1, starTargets: { time: 40, fastTime: 25 },
     warpEdges: false,
     description: 'A peaceful garden. Slow pads offer calm. Collect all apples.',
+  },
+  124: {
+    id: 124, name: 'Cosmic Slide', world: 5, worldName: 'Void Realm',
+    width: 15, height: 20, snake: { x: 7, y: 15, dir: 'UP', length: 3 },
+    goal: { type: 'eat-all' },
+    elements: [
+      { type: ELEM.FOOD, x: 3, y: 4 }, { type: ELEM.FOOD, x: 11, y: 4 },
+      { type: ELEM.FOOD, x: 7, y: 9 }, { type: ELEM.FOOD, x: 3, y: 14 },
+      { type: ELEM.FOOD, x: 11, y: 14 }, { type: ELEM.GOLDEN_FOOD, x: 7, y: 2 },
+    ],
+    walls: [
+      { x: 5, y: 7 }, { x: 9, y: 7 }, { x: 5, y: 12 }, { x: 9, y: 12 },
+    ],
+    speed: 1, starTargets: { time: 45, fastTime: 28 },
+    warpEdges: { top: true, bottom: true, left: false, right: false },
+    description: 'Warp edges top and bottom. Slide through the void!',
+  },
+  136: {
+    id: 136, name: 'Opal Path', world: 6, worldName: 'Crystal Depths',
+    width: 15, height: 20, snake: { x: 7, y: 16, dir: 'UP', length: 3 },
+    goal: { type: 'eat-all' },
+    elements: [
+      { type: ELEM.FOOD, x: 3, y: 5 }, { type: ELEM.FOOD, x: 11, y: 5 },
+      { type: ELEM.FOOD, x: 7, y: 10 }, { type: ELEM.FOOD, x: 3, y: 14 },
+      { type: ELEM.FOOD, x: 11, y: 14 },
+      { type: ELEM.ICE, x: 6, y: 10 }, { type: ELEM.ICE, x: 8, y: 10 },
+    ],
+    walls: [
+      { x: 5, y: 8 }, { x: 9, y: 8 }, { x: 5, y: 12 }, { x: 9, y: 12 },
+    ],
+    speed: 1, starTargets: { time: 40, fastTime: 25 }, warpEdges: false,
+    description: 'Crystal paths with icy patches. Tread carefully!',
+  },
+  245: {
+    id: 245, name: 'Big Bang', world: 10, worldName: 'Cosmic Temple',
+    width: 20, height: 25, snake: { x: 10, y: 20, dir: 'UP', length: 3 },
+    goal: { type: 'eat-all-and-exit' },
+    elements: [
+      { type: ELEM.FOOD, x: 4, y: 5 }, { type: ELEM.FOOD, x: 15, y: 5 },
+      { type: ELEM.FOOD, x: 4, y: 15 }, { type: ELEM.FOOD, x: 15, y: 15 },
+      { type: ELEM.FOOD, x: 10, y: 10 }, { type: ELEM.FOOD, x: 10, y: 22 },
+      { type: ELEM.GOLDEN_FOOD, x: 10, y: 3 },
+      { type: ELEM.EXIT, x: 10, y: 1 },
+    ],
+    walls: [
+      ...range(1, 8).map(x => ({ x, y: 8 })), ...range(12, 18).map(x => ({ x, y: 8 })),
+      ...range(1, 8).map(x => ({ x, y: 17 })), ...range(12, 18).map(x => ({ x, y: 17 })),
+    ],
+    speed: 1.3, starTargets: { time: 80, fastTime: 50 }, warpEdges: false,
+    description: 'The cosmic temple rumbles. Collect all and reach the exit!',
   },
   50: {
     id: 50, name: 'Temple Core', world: 2, worldName: 'Ancient Temple',
